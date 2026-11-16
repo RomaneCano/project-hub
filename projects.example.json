@@ -1,0 +1,14 @@
+{
+  "projects": [
+    {
+      "id": "mariage",
+      "name": "Mariage Cassiana & Matthieu",
+      "emoji": "💍",
+      "color": "#f472b6",
+      "description": "Site du mariage.",
+      "next": "",
+      "links": [],
+      "repos": ["RomaneCano/mariage-cassiana-matthieu"]
+    }
+  ]
+}

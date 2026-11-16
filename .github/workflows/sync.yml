@@ -1,0 +1,34 @@
+name: Sync & deploy
+on:
+  schedule: [{ cron: "17 * * * *" }]   # toutes les heures
+  push: { branches: [main] }
+  workflow_dispatch:
+permissions: { contents: read }          # aucune écriture sur le dépôt
+concurrency: { group: hub, cancel-in-progress: true }
+jobs:
+  build:
+    if: github.repository == 'RomaneCano/project-hub'   # ne tourne pas sur un fork
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Configuration des projets (secret, jamais dans le dépôt)
+        env: { HUB_PROJECTS: "${{ secrets.HUB_PROJECTS }}" }
+        run: |
+          if [ -n "$HUB_PROJECTS" ]; then printf '%s' "$HUB_PROJECTS" > projects.json; else cp projects.example.json projects.json; fi
+      - run: node scripts/sync.mjs
+        env:
+          HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
+          HUB_TOKEN_CAREWAY: ${{ secrets.HUB_TOKEN_CAREWAY }}
+          HUB_PASSWORD: ${{ secrets.HUB_PASSWORD }}   # la page publiée est chiffrée avec ce mot de passe
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { pages: write, id-token: write }
+    environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
