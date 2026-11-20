@@ -11,7 +11,7 @@ const USE_GH = process.argv.includes("--gh");
 // Un token fine-grained ne couvre qu'un propriétaire : HUB_TOKEN_<OWNER> (ex. HUB_TOKEN_ACME pour l'organisation acme-corp), sinon HUB_TOKEN.
 const tokenFor = path => {
   if (USE_GH) return null;
-  const owner = (path.match(/^\/repos\/([^/]+)\//) || [])[1] || "";
+  const owner = (path.match(/^\/(?:repos|orgs|users)\/([^/?]+)/) || [])[1] || "";
   return process.env["HUB_TOKEN_" + owner.split("-")[0].toUpperCase()] || process.env.HUB_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
 };
 const DAY = 864e5, WEEKS = 12;
@@ -43,17 +43,18 @@ async function allCommits(full, since) {
 async function fetchRepo(full) {
   const [owner, name] = full.split("/");
   const since = new Date(now - WEEKS * 7 * DAY).toISOString();
-  const [meta, commits, prs, runs] = await Promise.all([
+  const [meta, commits, prs, runs, iss] = await Promise.all([
     gh(`/repos/${full}`),
     allCommits(full, since),
     safe(`/repos/${full}/pulls?state=open&per_page=100`, []),
     safe(`/repos/${full}/actions/runs?per_page=5&status=completed`, { workflow_runs: [] }),
+    safe(`/repos/${full}/issues?state=open&sort=updated&per_page=40`, []),
   ]);
   // Si rien sur 12 semaines, on garde au moins le dernier commit
   const last = commits.length ? commits : await safe(`/repos/${full}/commits?per_page=3`, []);
   const series = Array(WEEKS).fill(0), days = Array(84).fill(0);
   let c7 = 0, c30 = 0;
-  const sessions = [];
+  const sessions = [], authors = new Map();
   for (const c of commits) {
     const age = now - new Date(c.commit.author.date).getTime();
     const w = Math.floor(age / (7 * DAY));
@@ -61,6 +62,13 @@ async function fetchRepo(full) {
     const di = Math.floor(age / DAY); if (di < 84) days[83 - di]++;
     if (age < 7 * DAY) c7++;
     if (age < 30 * DAY) c30++;
+    // qui a écrit ce commit ? (login GitHub si disponible, sinon le nom)
+    const al = c.author?.login || null, an = c.commit.author.name || "", ae = c.commit.author.email || "", ak = (al || an).toLowerCase();
+    if (ak) {
+      const bot = /\bbot\b/i.test(an) || /\[bot\]$/i.test(al || "") || /^(dependabot|github-actions|renovate|copilot|claude)/i.test(al || an) || /anthropic\.com$/i.test(ae);
+      const e = authors.get(ak) || { login: al, name: an, avatar: c.author?.avatar_url || null, n: 0, last: c.commit.author.date, bot, days: Array(84).fill(0) };
+      e.n++; if (di < 84) e.days[83 - di]++; if (c.commit.author.date > e.last) e.last = c.commit.author.date; authors.set(ak, e);
+    }
     for (const m of c.commit.message.matchAll(/https:\/\/claude\.ai\/code\/session_[A-Za-z0-9]+/g))
       sessions.push({ url: m[0], date: c.commit.author.date, title: c.commit.message.split("\n")[0].slice(0, 90), repo: name });
   }
@@ -76,6 +84,12 @@ async function fetchRepo(full) {
     series, days, c7, c30,
     recent: last.slice(0, 5).map(c => ({ msg: c.commit.message.split("\n")[0].slice(0, 110), date: c.commit.author.date, author: c.commit.author.name, url: c.html_url })),
     sessions,
+    authors: [...authors.values()].sort((a, b) => b.n - a.n).slice(0, 20),
+    // demandes en attente : on garde les plus anciennes en premier pour les propositions, les plus récentes pour les tâches
+    pulls: prs.map(x => ({ n: x.number, title: (x.title || "").slice(0, 120), url: x.html_url, by: x.user?.login || "", draft: !!x.draft, created: x.created_at, updated: x.updated_at,
+      reviewers: (x.requested_reviewers || []).map(u => u.login), labels: (x.labels || []).map(l => l.name).slice(0, 3) })).sort((a, b) => a.created.localeCompare(b.created)).slice(0, 15),
+    issuesList: iss.filter(x => !x.pull_request).slice(0, 15).map(x => ({ n: x.number, title: (x.title || "").slice(0, 120), url: x.html_url, by: x.user?.login || "", comments: x.comments,
+      created: x.created_at, updated: x.updated_at, labels: (x.labels || []).map(l => l.name).slice(0, 3), assignees: (x.assignees || []).map(u => u.login) })),
   };
 }
 
@@ -100,18 +114,40 @@ for (const p of cfg.projects) {
   const created = repos.map(r => r.created).filter(Boolean).sort()[0];
   const age = pushed ? (now - new Date(pushed)) / DAY : Infinity;
   const auto = age <= 7 ? "active" : age <= 30 ? "recent" : "dormant";
-  const sessions = repos.flatMap(r => r.sessions).sort((a, b) => b.date.localeCompare(a.date))
-    .filter((s, i, a) => a.findIndex(x => x.url === s.url) === i).slice(0, 8);
+  // conversations : une entrée par lien, avec le nombre de commits qui y sont rattachés
+  const smap = new Map();
+  repos.flatMap(r => r.sessions).forEach(s => {
+    const e = smap.get(s.url);
+    if (!e) smap.set(s.url, { ...s, n: 1, first: s.date });
+    else { e.n++; if (s.date > e.date) { e.date = s.date; e.title = s.title; e.repo = s.repo; } if (s.date < e.first) e.first = s.date; }
+  });
+  const all = [...smap.values()];
+  const sessions = [...all].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
+  const mainAuto = [...all].sort((a, b) => b.n - a.n || b.date.localeCompare(a.date))[0]?.url || null;
   const sites = [...new Set(repos.map(r => r.site).filter(Boolean))];
   out.push({
     ...p, status: p.status || auto, autoStatus: auto, created, pushed,
     series: Array.from({ length: WEEKS }, (_, i) => repos.reduce((s, r) => s + (r.series[i] || 0), 0)),
     c7: repos.reduce((s, r) => s + r.c7, 0), c30: repos.reduce((s, r) => s + r.c30, 0),
     issues: repos.reduce((s, r) => s + (r.issues || 0), 0), prs: repos.reduce((s, r) => s + (r.prs || 0), 0),
-    sites, sessions, repos,
+    sites, sessions, mainAuto, repos,
   });
 }
-const data = { generated: new Date().toISOString(), weeks: WEEKS, projects: out };
+// « moi » : le propriétaire du hub (dans le workflow) ou la valeur « me » de la configuration
+let me = [].concat(cfg.me || process.env.HUB_ME || process.env.GITHUB_REPOSITORY_OWNER || []).map(x => String(x).toLowerCase());
+if (!me.length && USE_GH) { try { me = [JSON.parse(execFileSync("gh", ["api", "user"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })).login.toLowerCase()]; } catch {} }
+// catalogue des dépôts accessibles : permet de choisir dans une liste au lieu de taper « propriétaire/nom »
+const assigned = new Set(cfg.projects.flatMap(p => p.repos.map(r => r.toLowerCase())));
+const owners = [...new Set(cfg.projects.flatMap(p => p.repos.map(r => r.split("/")[0])).concat(me))];
+const catalog = [], seen = new Set();
+for (const o of owners) {
+  const lists = me.includes(o.toLowerCase()) ? ["/user/repos?affiliation=owner&sort=pushed&per_page=100"] : [`/orgs/${o}/repos?sort=pushed&per_page=100`, `/users/${o}/repos?sort=pushed&per_page=100`];
+  let got = []; for (const l of lists) { got = await safe(l, []); if (Array.isArray(got) && got.length) break; got = []; }
+  got.forEach(r => { if (seen.has(r.full_name)) return; seen.add(r.full_name);
+    catalog.push({ full: r.full_name, desc: (r.description || "").slice(0, 100), pushed: r.pushed_at, private: r.private, language: r.language, archived: !!r.archived, assigned: assigned.has(r.full_name.toLowerCase()) }); });
+}
+console.log(`catalogue : ${catalog.length} dépôts proposés`);
+const data = { generated: new Date().toISOString(), weeks: WEEKS, me, team: cfg.team || [], catalog, projects: out };
 writeFileSync(prevPath, JSON.stringify(data, null, 2));
 
 mkdirSync(join(root, "dist"), { recursive: true });
