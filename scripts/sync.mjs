@@ -2,7 +2,7 @@
 // Lit projects.json, interroge GitHub, écrit data.json et dist/index.html (page autonome).
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { randomBytes, pbkdf2Sync, createCipheriv } from "node:crypto";
+import { randomBytes, pbkdf2Sync, createCipheriv, createHmac } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,24 +31,34 @@ async function gh(path) {
 }
 const safe = async (p, d = null) => { try { return await gh(p); } catch { return d; } };
 
+async function allCommits(full, since) {
+  let out = [];
+  for (let page = 1; page <= 5; page++) {
+    const r = await safe(`/repos/${full}/commits?since=${since}&per_page=100&page=${page}`, []);
+    out = out.concat(r); if (r.length < 100) break;
+  }
+  return out;
+}
+
 async function fetchRepo(full) {
   const [owner, name] = full.split("/");
   const since = new Date(now - WEEKS * 7 * DAY).toISOString();
   const [meta, commits, prs, runs] = await Promise.all([
     gh(`/repos/${full}`),
-    safe(`/repos/${full}/commits?since=${since}&per_page=100`, []),
+    allCommits(full, since),
     safe(`/repos/${full}/pulls?state=open&per_page=100`, []),
     safe(`/repos/${full}/actions/runs?per_page=5&status=completed`, { workflow_runs: [] }),
   ]);
   // Si rien sur 12 semaines, on garde au moins le dernier commit
   const last = commits.length ? commits : await safe(`/repos/${full}/commits?per_page=3`, []);
-  const series = Array(WEEKS).fill(0);
+  const series = Array(WEEKS).fill(0), days = Array(84).fill(0);
   let c7 = 0, c30 = 0;
   const sessions = [];
   for (const c of commits) {
     const age = now - new Date(c.commit.author.date).getTime();
     const w = Math.floor(age / (7 * DAY));
     if (w < WEEKS) series[WEEKS - 1 - w]++;
+    const di = Math.floor(age / DAY); if (di < 84) days[83 - di]++;
     if (age < 7 * DAY) c7++;
     if (age < 30 * DAY) c30++;
     for (const m of c.commit.message.matchAll(/https:\/\/claude\.ai\/code\/session_[A-Za-z0-9]+/g))
@@ -63,7 +73,7 @@ async function fetchRepo(full) {
     created: meta.created_at, pushed: meta.pushed_at, branch: meta.default_branch,
     issues: Math.max(0, meta.open_issues_count - prs.length), prs: prs.length,
     site: meta.homepage || pages, ci: run ? { status: run.conclusion, name: run.name, url: run.html_url, date: run.updated_at } : null,
-    series, c7, c30,
+    series, days, c7, c30,
     recent: last.slice(0, 5).map(c => ({ msg: c.commit.message.split("\n")[0].slice(0, 110), date: c.commit.author.date, author: c.commit.author.name, url: c.html_url })),
     sessions,
   };
@@ -105,18 +115,30 @@ const data = { generated: new Date().toISOString(), weeks: WEEKS, projects: out 
 writeFileSync(prevPath, JSON.stringify(data, null, 2));
 
 mkdirSync(join(root, "dist"), { recursive: true });
-const tpl = readFileSync(join(root, "template.html"), "utf8").replace("/*__VILLAGE__*/", () => readFileSync(join(root, "village.js"), "utf8"));
-const page = tpl.replace("/*__DATA__*/null", () => JSON.stringify(data).replace(/</g, "\\u003c"));
+const rd = f => readFileSync(join(root, f), "utf8");
+const logo = rd("logo.svg");
+const page = rd("template.html")
+  .replace("/*__APP__*/", () => rd("app.js"))
+  .replace("/*__LOGO__*/", () => JSON.stringify(logo))
+  .replace("/*__DATA__*/null", () => JSON.stringify(data).replace(/</g, "\\u003c"));
+const doc = '<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' + page;
+
 const CI = !!process.env.GITHUB_ACTIONS, PW = process.env.HUB_PASSWORD;
 if (CI && !PW) { console.error("HUB_PASSWORD manquant : refus de publier la page en clair."); process.exit(1); }
 if (PW && PW.length < 16) { console.error("HUB_PASSWORD trop court (16 caractères minimum)."); process.exit(1); }
-const doc = '<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' + page;
+
+writeFileSync(join(root, "dist/favicon.svg"), logo);
+writeFileSync(join(root, "dist/manifest.webmanifest"), JSON.stringify({
+  name: "Romy's Projects Hub", short_name: "Projects Hub", start_url: ".", display: "standalone",
+  background_color: "#0f0d24", theme_color: "#0f0d24", icons: [{ src: "favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }],
+}));
 if (PW) {
-  // AES-256-GCM, clé dérivée du mot de passe par PBKDF2-SHA256 (600 000 itérations) : seule cette version est publiée.
-  const salt = randomBytes(16), iv = randomBytes(12), ITER = 600000;
+  // AES-256-GCM. Clé = PBKDF2-SHA256(mot de passe, sel dérivé du mot de passe, 600 000 it.).
+  // Le sel est stable d'un déploiement à l'autre : la clé mémorisée sur un appareil reste valable, seul l'IV change.
+  const salt = createHmac("sha256", PW).update("romys-projects-hub/v1").digest().subarray(0, 16), iv = randomBytes(12), ITER = 600000;
   const c = createCipheriv("aes-256-gcm", pbkdf2Sync(PW, salt, ITER, 32, "sha256"), iv);
   const ct = Buffer.concat([c.update(doc, "utf8"), c.final(), c.getAuthTag()]).toString("base64");
-  writeFileSync(join(root, "dist/index.html"), readFileSync(join(root, "unlock.html"), "utf8")
+  writeFileSync(join(root, "dist/index.html"), rd("unlock.html").replace("<!--LOGO-->", () => logo)
     .replace("__SALT__", salt.toString("base64")).replace("__IV__", iv.toString("base64")).replace("__ITER__", ITER).replace("__CT__", ct));
 } else {
   writeFileSync(join(root, "dist/index.html"), doc);   // local uniquement (dist/ est ignoré par git)

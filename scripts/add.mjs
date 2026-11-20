@@ -12,7 +12,7 @@ const cfg = JSON.parse(readFileSync(file, "utf8"));
 const id = opt("project") || repo.split("/")[1].toLowerCase();
 let p = cfg.projects.find(x => x.id === id);
 if (!p) {
-  const palette = ["#6366f1", "#22c55e", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#f97316"];
+  const palette = ["#8b6bff", "#19c3b1", "#ff7ab6", "#ffb23f", "#4aa8ff", "#7ae25c", "#ff6b6b", "#c084fc"];
   p = { id, name: opt("name") || repo.split("/")[1], emoji: opt("emoji") || "🚀", color: palette[cfg.projects.length % palette.length],
         description: opt("desc") || "", next: "", links: [], repos: [] };
   cfg.projects.push(p);

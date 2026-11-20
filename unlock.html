@@ -1,23 +1,132 @@
-<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Project Hub</title>
+<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0f0d24">
+<title>Romy's Projects Hub</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&family=Press+Start+2P&display=swap">
 <style>
-:root{color-scheme:light dark;--bg:#f4f6f8;--fg:#16202c;--s:#fff;--l:#dde2e9;--a:#2f6df6}
-@media(prefers-color-scheme:dark){:root{--bg:#0e141b;--fg:#e6edf5;--s:#16202b;--l:#273544;--a:#6b9bff}}
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--fg);font:15px system-ui,sans-serif}
-form{background:var(--s);border:1px solid var(--l);border-radius:12px;padding:28px;display:grid;gap:12px;width:min(340px,90vw)}
-h1{margin:0;font-size:22px}input,button{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--l);background:var(--bg);color:var(--fg)}
-button{background:var(--a);color:#fff;border-color:var(--a);cursor:pointer;font-weight:600}#m{margin:0;min-height:1.2em;color:#dc2626;font-size:13px}
+:root{--bg:#0f0d24;--panel:rgba(26,21,62,.78);--line:#4a3fa8;--fg:#f4f1ff;--muted:#b4aedf;--violet:#8b6bff;--coral:#ff7a9c;--gold:#ffc857;--bad:#ff6b81;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:600 15px/1.4 Nunito,system-ui,sans-serif;overflow:hidden}
+canvas{image-rendering:pixelated;display:block}
+#bg{position:fixed;inset:0;width:100%;height:100%}
+#gate{position:fixed;inset:0;display:grid;place-items:center;padding:16px;padding-top:max(16px,env(safe-area-inset-top,0px))}
+.card{width:min(380px,100%);background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:2px solid var(--line);border-radius:18px;padding:26px 24px 20px;display:grid;gap:12px;box-shadow:0 6px 0 rgba(0,0,0,.35),0 0 60px rgba(139,107,255,.25);animation:rise .6s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes rise{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+.logo{width:76px;height:76px;margin:0 auto -2px;filter:drop-shadow(0 4px 0 rgba(0,0,0,.35));animation:bob 3s ease-in-out infinite}
+.logo svg{width:100%;height:100%;display:block}
+@keyframes bob{50%{transform:translateY(-4px)}}
+h1{margin:0;text-align:center;font:400 13px/1.7 "Press Start 2P",monospace}
+h1 span{display:block;font-size:11px;color:var(--gold)}
+.sub{margin:0 0 4px;text-align:center;color:var(--muted)}
+label{font-size:13px;color:var(--muted)}
+.pw{position:relative}
+input[type=password],input[type=text]{width:100%;font:inherit;font-size:16px;padding:12px 44px 12px 14px;border-radius:12px;border:2px solid var(--line);background:rgba(10,8,32,.7);color:var(--fg);outline:none}
+input:focus-visible{border-color:var(--violet);box-shadow:0 0 0 3px rgba(139,107,255,.35)}
+#eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);cursor:pointer;font-size:18px;padding:6px 8px;border-radius:8px}
+.chk{display:flex;gap:10px;align-items:center;cursor:pointer;color:var(--fg);font-size:14px}
+.chk input{width:18px;height:18px;accent-color:var(--violet)}
+.go{font:800 16px Nunito,sans-serif;padding:13px;border-radius:12px;border:0;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--violet),var(--coral));box-shadow:0 4px 0 #3b2a9a;transition:transform .1s,box-shadow .1s}
+.go:hover{filter:brightness(1.08)}.go:active{transform:translateY(3px);box-shadow:0 1px 0 #3b2a9a}.go[disabled]{opacity:.7;cursor:progress}
+#m{margin:0;min-height:1.3em;text-align:center;color:var(--bad);font-size:13px}
+.fine{margin:0;text-align:center;color:var(--muted);font-size:12px}
+.shake{animation:shake .4s}@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#splash{position:fixed;inset:0;background:var(--bg);display:grid;grid-template-rows:1fr auto;z-index:9;animation:fade .3s both}
+@keyframes fade{from{opacity:0}}
+#sc{width:100%;height:100%}
+.sp{position:absolute;left:0;right:0;bottom:12%;display:grid;justify-items:center;gap:12px;padding:0 24px}
+.sbar{width:min(320px,80vw);height:14px;border:2px solid var(--line);border-radius:8px;background:rgba(10,8,32,.8);padding:2px}
+.sbar i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,var(--violet),var(--coral),var(--gold));background-size:200% 100%;animation:flow 1s linear infinite}
+@keyframes flow{to{background-position:-200% 0}}
+#st{margin:0;font:400 10px/1.6 "Press Start 2P",monospace;text-align:center;color:var(--fg)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
-<form id="f"><h1>Project Hub</h1><label for="p">Mot de passe</label><input id="p" type="password" autocomplete="current-password" autofocus><button>Ouvrir</button><p id="m" role="alert"></p></form>
+<canvas id="bg" aria-hidden="true"></canvas>
+<main id="gate">
+<form id="f" class="card" autocomplete="on">
+  <div class="logo"><!--LOGO--></div>
+  <h1>Romy's<span>Projects Hub</span></h1>
+  <p class="sub">Tous mes projets, dans un seul village.</p>
+  <label for="p">Mot de passe</label>
+  <div class="pw"><input id="p" type="password" autocomplete="current-password" required autofocus><button type="button" id="eye" aria-label="Afficher le mot de passe">👁</button></div>
+  <label class="chk" for="r"><input id="r" type="checkbox" checked><span>Garder cet appareil connecté</span></label>
+  <button class="go" id="go">Entrer au village</button>
+  <p id="m" role="alert"></p>
+  <p class="fine">Appareil partagé ? Décochez la case ci-dessus.</p>
+</form>
+</main>
+<div id="splash" hidden><canvas id="sc"></canvas><div class="sp"><div class="sbar"><i id="sb"></i></div><p id="st">Chargement…</p></div></div>
 <script>
+(() => {   // tout en local : l'application est injectée ensuite dans la même fenêtre sans conflit de noms
 const S="__SALT__",V="__IV__",I=__ITER__,C="__CT__";
-const b=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
-document.getElementById("f").onsubmit=async ev=>{
-  ev.preventDefault(); const m=document.getElementById("m"); m.textContent="";
-  try{
-    const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(document.getElementById("p").value),"PBKDF2",false,["deriveKey"]);
-    const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b(S),iterations:I,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["decrypt"]);
-    const html=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b(V)},key,b(C)));
-    document.open();document.write(html);document.close();
-  }catch{m.textContent="Mot de passe incorrect."}
+const $=id=>document.getElementById(id), b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const REDUCE=matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* ---- clé mémorisée sur l'appareil (CryptoKey non exportable dans IndexedDB) ---- */
+const idb=()=>new Promise((ok,ko)=>{const r=indexedDB.open("rph",1);r.onupgradeneeded=()=>r.result.createObjectStore("k");r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error)});
+const kget=async()=>{const d=await idb();return new Promise(ok=>{const q=d.transaction("k").objectStore("k").get("main");q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null)})};
+const kset=async k=>{const d=await idb();return new Promise(ok=>{const t=d.transaction("k","readwrite");t.objectStore("k").put(k,"main");t.oncomplete=ok;t.onerror=ok})};
+const kdel=()=>new Promise(ok=>{try{const r=indexedDB.deleteDatabase("rph");r.onsuccess=r.onerror=r.onblocked=ok}catch{ok()}});
+const derive=async pw=>{const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(S),iterations:I,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["decrypt"])};
+const decrypt=async key=>new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(V)},key,b64(C)));
+/* ---- décor pixel-art (fond de connexion + écran de chargement) ---- */
+const lerp=(a,b,t)=>{const A=parseInt(a.slice(1),16),B=parseInt(b.slice(1),16),m=s=>Math.round((A>>s&255)*(1-t)+(B>>s&255)*t);return`rgb(${m(16)},${m(8)},${m(0)})`};
+const HOUSES=[["#19c3b1","#0f7f78"],["#ff7ab6","#b73b7a"],["#ffb23f","#b86f0a"]];
+function scene(cv,t,build){
+  const k=4,g=cv.getContext("2d"),w=Math.ceil(cv.width/k),h=Math.ceil(cv.height/k),hz=Math.round(h*.6);
+  g.setTransform(k,0,0,k,0,0);g.imageSmoothingEnabled=false;
+  const R=(x,y,a,b,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),a,b)};
+  for(let y=0;y<hz;y+=4){const f=y/hz;R(0,y,w,4,f<.55?lerp("#0a0d2c","#2a1f6b",f/.55):lerp("#2a1f6b","#c0508f",(f-.55)/.45))}
+  for(let i=0;i<70;i++){const x=(i*97)%w,y=(i*53)%(hz-20);if(((t*3|0)+i)%7)R(x,y,1,1,"#fff")}
+  R(w*.82,10,10,10,"#fdf3c4");R(w*.82+3,10,7,10,"#2a1f6b");
+  for(let x=0;x<w;x+=2){const a=14+7*Math.sin(x/17)+4*Math.sin(x/6);R(x,hz-a,2,a+2,"#1b2f6a")}
+  R(0,hz,w,h-hz,"#1d5a49");R(0,hz,w,2,"#2f8a68");
+  HOUSES.forEach(([c,r],i)=>{
+    const hw=44+i*6,cx=Math.round(w*(.22+i*.28)),hy=hz+16+i%2*8,f=Math.max(0,Math.min(1,build*3.2-i*.7));if(f<=0)return;
+    g.save();g.beginPath();g.rect(cx-40,hy+2-70*f,80,70*f);g.clip();
+    R(cx-hw/2,hy-36,hw,36,c);R(cx+hw/2-5,hy-36,5,36,"rgba(0,0,0,.2)");
+    for(let j=0;j<16;j++){const hh=Math.round((j+1)/16*(hw/2+5));R(cx-hh,hy-52+j,hh*2,1,r)}
+    R(cx-5,hy-16,10,16,"#4a2f1c");R(cx-hw/2+6,hy-28,9,9,"#ffe58a");R(cx+hw/2-15,hy-28,9,9,"#ffe58a");
+    g.restore();
+  });
+  [["#ff7ab6",0],["#46e6a8",1],["#ffc857",2]].forEach(([c,i])=>{
+    const x=((t*(18+i*5)+i*70)%(w+30))-15,y=hz+34+i*9,s=Math.floor(t*8)%2;
+    R(x-3,y-1,7,2,"rgba(0,0,0,.25)");R(x-2,y-3+s,2,3-s,"#222a48");R(x,y-3+(1-s),2,3-(1-s),"#222a48");R(x-3,y-8,6,5,c);R(x-2,y-12,5,4,"#f5c9a0");R(x-2,y-13,5,2,"#2b1d12");
+  });
+}
+const bg=$("bg"),sc=$("sc");
+function fit(cv){cv.width=innerWidth;cv.height=innerHeight}
+fit(bg);addEventListener("resize",()=>{fit(bg);if(!$("splash").hidden)fit(sc)});
+let raf=0,T0=performance.now();
+(function loop(){scene(bg,(performance.now()-T0)/1000,1);if(!REDUCE)raf=requestAnimationFrame(loop)})();
+/* ---- écran de chargement ---- */
+const MSG=["Déchiffrement du village…","Construction des maisons…","Réveil des habitants…","Tout est prêt !"];
+async function splash(work){
+  $("gate").style.display="none";cancelAnimationFrame(raf);$("splash").hidden=false;fit(sc);
+  const t0=performance.now(),MIN=REDUCE?0:1500;let done=false,out;
+  work.then(v=>{out=v;done=true},()=>{done=true});
+  await new Promise(res=>{(function step(){
+    const e=performance.now()-t0,p=Math.min(1,e/MIN),shown=done?p:Math.min(p,.88);
+    scene(sc,e/1000,shown);$("sb").style.width=(shown*100)+"%";$("st").textContent=MSG[Math.min(3,Math.floor(shown*3.4))];
+    if(p>=1&&done)res();else requestAnimationFrame(step)})()});
+  const v=await work;return v;
+}
+function back(){$("splash").hidden=true;$("gate").style.display="";raf=requestAnimationFrame(function l(){scene(bg,(performance.now()-T0)/1000,1);if(!REDUCE)raf=requestAnimationFrame(l)})}
+const open=html=>{document.open();document.write(html);document.close()};
+/* ---- connexion automatique ---- */
+(async()=>{
+  try{const key=await kget();if(!key)return;
+    const html=await splash(decrypt(key));open(html);
+  }catch{await kdel();back()}
+})();
+/* ---- formulaire ---- */
+$("eye").onclick=()=>{const p=$("p"),s=p.type==="password";p.type=s?"text":"password";$("eye").textContent=s?"🙈":"👁";$("eye").setAttribute("aria-label",s?"Masquer le mot de passe":"Afficher le mot de passe")};
+$("f").onsubmit=async ev=>{
+  ev.preventDefault();const m=$("m"),go=$("go");m.textContent="";go.disabled=true;go.textContent="Déchiffrement…";
+  let key,html;
+  try{key=await derive($("p").value);html=await decrypt(key)}
+  catch{go.disabled=false;go.textContent="Entrer au village";m.textContent="Mot de passe incorrect.";const f=$("f");f.classList.remove("shake");void f.offsetWidth;f.classList.add("shake");$("p").select();return}
+  try{if($("r").checked)await kset(key);else await kdel()}catch{}
+  await splash(Promise.resolve(html));open(html);
 };
+})();
 </script>
