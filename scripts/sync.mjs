@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { randomBytes, pbkdf2Sync, createCipheriv, createHmac } from "node:crypto";
+import tls from "node:tls";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,7 +54,7 @@ async function fetchRepo(full) {
   // Si rien sur 12 semaines, on garde au moins le dernier commit
   const last = commits.length ? commits : await safe(`/repos/${full}/commits?per_page=3`, []);
   const series = Array(WEEKS).fill(0), days = Array(84).fill(0);
-  let c7 = 0, c30 = 0;
+  let c7 = 0, c30 = 0, release = null;
   const sessions = [], authors = new Map();
   for (const c of commits) {
     const age = now - new Date(c.commit.author.date).getTime();
@@ -62,6 +63,7 @@ async function fetchRepo(full) {
     const di = Math.floor(age / DAY); if (di < 84) days[83 - di]++;
     if (age < 7 * DAY) c7++;
     if (age < 30 * DAY) c30++;
+    if (!release) { const first = c.commit.message.split("\n")[0], m = first.match(/release[^\d\n]*v?(\d+\.\d+\.\d+)/i) || first.match(/^v(\d+\.\d+\.\d+)\b/i); if (m) release = { v: m[1], date: c.commit.author.date, url: c.html_url }; }
     // qui a écrit ce commit ? (login GitHub si disponible, sinon le nom)
     const al = c.author?.login || null, an = c.commit.author.name || "", ae = c.commit.author.email || "", ak = (al || an).toLowerCase();
     if (ak) {
@@ -81,7 +83,7 @@ async function fetchRepo(full) {
     created: meta.created_at, pushed: meta.pushed_at, branch: meta.default_branch,
     issues: Math.max(0, meta.open_issues_count - prs.length), prs: prs.length,
     site: meta.homepage || pages, ci: run ? { status: run.conclusion, name: run.name, url: run.html_url, date: run.updated_at } : null,
-    series, days, c7, c30,
+    series, days, c7, c30, release,
     recent: last.slice(0, 5).map(c => ({ msg: c.commit.message.split("\n")[0].slice(0, 110), date: c.commit.author.date, author: c.commit.author.name, url: c.html_url })),
     sessions,
     authors: [...authors.values()].sort((a, b) => b.n - a.n).slice(0, 20),
@@ -93,9 +95,55 @@ async function fetchRepo(full) {
   };
 }
 
-const cfg = JSON.parse(readFileSync(join(root, "projects.json"), "utf8"));
+const cfg = JSON.parse(readFileSync(process.env.HUB_CONFIG || join(root, "projects.json"), "utf8"));
 const prevPath = join(root, "data.json");
 const prev = existsSync(prevPath) ? JSON.parse(readFileSync(prevPath, "utf8")) : { projects: [] };
+
+// ---- usage des applications : lit uniquement des totaux agrégés (aucune donnée personnelle) ----
+const todayUTC = Date.parse(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
+const toArr = obj => { const a = Array(84).fill(0); Object.entries(obj || {}).forEach(([d, c]) => { const i = 83 - Math.round((todayUTC - Date.parse(String(d).slice(0, 10) + "T00:00:00Z")) / DAY); if (i >= 0 && i < 84) a[i] += +c || 0; }); return a; };
+function normalizeUsage(raw, ignore = []) {
+  const tables = (raw.tables || []).filter(t => !ignore.includes(t.name)).map(t => ({ name: t.name, rows: +t.rows || 0, n7: +t.n7 || 0, n30: +t.n30 || 0, last: t.last || null, bytes: +t.bytes || 0, days: toArr(t.days) }));
+  const events = Array(84).fill(0); tables.forEach(t => t.days.forEach((v, i) => { events[i] += v; }));
+  const a = raw.auth;
+  return { ok: true, at: new Date().toISOString(), dbBytes: +raw.db_bytes || 0, tables, events,
+    users: a ? { total: +a.users || 0, active7: +a.active7 || 0, active30: +a.active30 || 0, newDays: toArr(a.created), seenDays: toArr(a.seen), last: a.last_seen || null } : null,
+    last: [...tables.map(t => t.last), a?.last_seen].filter(Boolean).sort().at(-1) || null };
+}
+async function collectUsage(p) {
+  const u = p.usage; if (!u) return null;
+  try {
+    let r;
+    if (u.supabase?.url) {
+      const key = process.env.HUB_USAGE_KEY; if (!key) return { ok: false, error: "no-key" };
+      const anon = u.supabase.anon || "";
+      r = await fetch(u.supabase.url.replace(/\/$/, "") + "/rest/v1/rpc/hub_stats", { method: "POST", headers: { apikey: anon, Authorization: "Bearer " + anon, "Content-Type": "application/json" }, body: JSON.stringify({ p_key: key }) });
+    } else if (u.endpoint?.url) {   // n'importe quelle API qui renvoie le même JSON que hub_stats
+      const tok = process.env[u.endpoint.tokenEnv || "HUB_USAGE_TOKEN"]; if (!tok) return { ok: false, error: "no-key" };
+      r = await fetch(u.endpoint.url, { headers: { Authorization: "Bearer " + tok } });
+    } else return null;
+    if (!r.ok) return { ok: false, error: "http-" + r.status };
+    return normalizeUsage(await r.json(), u.ignore || []);
+  } catch { return { ok: false, error: "fetch" }; }
+}
+
+// ---- disponibilité des sites ----
+async function checkSite(url) {
+  const t0 = Date.now(), out = { url, ok: false, status: 0, ms: 0, certDays: null };
+  try {
+    const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(url, { signal: ctrl.signal, redirect: "follow", headers: { "User-Agent": "projects-hub-monitor" } });
+    clearTimeout(to); out.status = r.status; out.ms = Date.now() - t0; out.ok = r.status < 400; await r.body?.cancel?.();
+  } catch { out.ms = Date.now() - t0; }
+  try {
+    const u = new URL(url);
+    if (u.protocol === "https:") out.certDays = await new Promise(res => {
+      const sk = tls.connect({ host: u.hostname, port: 443, servername: u.hostname, timeout: 6000 }, () => { const c = sk.getPeerCertificate(); sk.end(); res(c?.valid_to ? Math.round((Date.parse(c.valid_to) - Date.now()) / DAY) : null); });
+      sk.on("error", () => res(null)); sk.on("timeout", () => { sk.destroy(); res(null); });
+    });
+  } catch {}
+  return out;
+}
 
 let ok = 0, ko = 0;
 const out = [];
@@ -130,7 +178,7 @@ for (const p of cfg.projects) {
     series: Array.from({ length: WEEKS }, (_, i) => repos.reduce((s, r) => s + (r.series[i] || 0), 0)),
     c7: repos.reduce((s, r) => s + r.c7, 0), c30: repos.reduce((s, r) => s + r.c30, 0),
     issues: repos.reduce((s, r) => s + (r.issues || 0), 0), prs: repos.reduce((s, r) => s + (r.prs || 0), 0),
-    sites, sessions, mainAuto, repos,
+    sites, sessions, mainAuto, repos, usageData: await collectUsage(p), checks: await Promise.all(sites.filter(u => /^https?:/.test(u)).slice(0, 4).map(checkSite)),
   });
 }
 // « moi » : le propriétaire du hub (dans le workflow) ou la valeur « me » de la configuration
@@ -147,7 +195,7 @@ for (const o of owners) {
     catalog.push({ full: r.full_name, desc: (r.description || "").slice(0, 100), pushed: r.pushed_at, private: r.private, language: r.language, archived: !!r.archived, assigned: assigned.has(r.full_name.toLowerCase()) }); });
 }
 console.log(`catalogue : ${catalog.length} dépôts proposés`);
-const data = { generated: new Date().toISOString(), weeks: WEEKS, me, team: cfg.team || [], catalog, projects: out };
+const data = { generated: new Date().toISOString(), weeks: WEEKS, me, team: cfg.team || [], hub: cfg.hub || {}, catalog, projects: out };
 writeFileSync(prevPath, JSON.stringify(data, null, 2));
 
 mkdirSync(join(root, "dist"), { recursive: true });
@@ -156,6 +204,7 @@ const logo = rd("logo.svg");
 const page = rd("template.html")
   .replace("/*__APP__*/", () => rd("app.js"))
   .replace("/*__LOGO__*/", () => JSON.stringify(logo))
+  .replace("/*__SQL__*/", () => JSON.stringify(rd("usage/hub-stats.sql")))
   .replace("/*__DATA__*/null", () => JSON.stringify(data).replace(/</g, "\\u003c"));
 const doc = '<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' + page;
 

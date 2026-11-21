@@ -22,6 +22,7 @@ jobs:
           HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
           HUB_TOKEN_CAREWAY: ${{ secrets.HUB_TOKEN_CAREWAY }}
           HUB_PASSWORD: ${{ secrets.HUB_PASSWORD }}   # la page publiée est chiffrée avec ce mot de passe
+          HUB_USAGE_KEY: ${{ secrets.HUB_USAGE_KEY }} # clé de lecture des statistiques d'usage (fonction hub_stats)
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
   deploy:

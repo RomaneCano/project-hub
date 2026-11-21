@@ -17,6 +17,25 @@ Activité, niveau, liens, conversations avec Claude, statistiques, recherche, no
 - **Collaborateurs externes** : une personne est « externe » si elle n'est ni vous (`me`), ni dans `team` (global ou par projet, dans la configuration), ni un robot. Ils apparaissent comme des visiteurs au gilet orange. Le bouton « C'est l'équipe » les reclasse sur l'appareil.
 - **Période** : 7 jours, 30 jours ou 12 semaines pour les chiffres, les statistiques, le classement et les collaborateurs.
 
+## Suivi : usage, santé, alertes, échéances
+- **Usage des sites** (applications Supabase) : utilisateurs inscrits et actifs, données saisies par jour, jours d'activité, volume en base, statut « utilisé / peu utilisé / pas utilisé ». Les utilisateurs apparaissent dans le village comme des personnages à casquette bleue.
+  Le hub ne lit que des **totaux** (jamais de noms, d'e-mails ni de contenus), via une fonction SQL `hub_stats` protégée par une clé de lecture :
+  1. Bouton « Connecter l'usage de ce site » (fiche du projet, ou puce « usage » du haut) : le hub génère la clé et le script SQL (`usage/hub-stats.sql`).
+  2. Exécuter le script dans le SQL Editor de Supabase.
+  3. Créer le secret GitHub `HUB_USAGE_KEY` (la même clé pour tous les sites) et recopier la configuration dans `HUB_PROJECTS`.
+  Dans la configuration : `"usage": { "supabase": { "url": "https://xxxx.supabase.co", "anon": "clé publique du site" }, "ignore": ["textes"] }`.
+  Une autre API peut fournir le même JSON : `"usage": { "endpoint": { "url": "https://…", "tokenEnv": "HUB_USAGE_TOKEN" } }`.
+- **Disponibilité** : à chaque mise à jour, chaque site est contrôlé (code HTTP, temps de réponse, expiration du certificat).
+- **Santé** (0 à 100) : activité, tests automatiques, propositions qui traînent, site en ligne, usage. Le détail est dans la fiche.
+- **À surveiller** : tests en échec, site injoignable, certificat proche, propositions de plus de 30 jours, avis demandé, échéances, usage nul.
+- **Échéances et renouvellements** : `"deadline": { "date": "2027-06-12", "label": "Mariage" }` et `"renewals": [{ "label": "Domaine", "date": "2027-03-01", "cost": "12 €" }]` (modifiables avec le crayon).
+- **Mes tâches** par projet, **nouveautés depuis la dernière visite**, **résumé de la semaine** à copier, **sauvegarde des réglages** de l'appareil (menu « Modifier le hub »).
+- **Modifier le hub** : lien vers la conversation Claude dédiée (`"hub": { "claude": "https://claude.ai/code/session_…" }`) et raccourcis vers le code, la mise à jour et les secrets.
+
+## Éléments du village qui reflètent une donnée
+Arc-en-ciel (tests au vert), camion (pipeline réussi < 24 h), ballon (version publiée < 3 j), étoile filante (activité < 1 h), volets fermés et toiles (rien depuis 30 j), cheminée et drapeau qui s'agitent avec l'activité, pluie (tests en échec), lettres qui débordent (10 propositions ou plus), personnages bleus (utilisateurs). Chaque élément explique sa signification au survol.
+Le bouton « Me balader » permet de marcher dans le village (flèches ou ZQSD, clic au sol, Entrée pour interagir). Quelques surprises sont cachées : les trophées (🏆) les listent.
+
 ## Modifier un projet
 Le crayon de la fiche change le nom, le logo, la couleur, la description et la liste des dépôts. Nom, logo et couleur s'appliquent tout de suite sur l'appareil. Pour les garder partout, « Rendre permanent » prépare la configuration à coller dans `HUB_PROJECTS`.
 
@@ -33,7 +52,7 @@ Si le propriétaire du dépôt est nouveau (autre organisation), créez un token
 
 ## Principe de sécurité (dépôt public)
 Ce dépôt ne contient **que du code**. Aucune donnée de projet n'y est stockée :
-- la liste réelle des dépôts suivis est dans le secret `HUB_PROJECTS` ;
+- la liste réelle des dépôts suivis (et les adresses des bases à mesurer) est dans le secret `HUB_PROJECTS` ;
 - les données sont lues à chaque exécution avec des tokens en lecture seule (`HUB_TOKEN`, `HUB_TOKEN_<PROPRIÉTAIRE>`) ;
 - la page publiée est **chiffrée** (AES-256-GCM, clé dérivée par PBKDF2) avec le secret `HUB_PASSWORD` (16 caractères minimum) ;
 - les logs du workflow n'affichent aucun nom de dépôt.

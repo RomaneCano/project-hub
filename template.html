@@ -198,6 +198,32 @@ button.chip{font:inherit;color:inherit;cursor:pointer;text-align:left}button.chi
 .rp .t{min-width:0;flex:1}.rp .t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.rp small{color:var(--muted);font-size:11.5px;font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar2{display:grid;grid-template-columns:minmax(90px,150px) 1fr 38px;gap:8px;align-items:center;font-size:12.5px}.bar2 .n{display:flex;gap:6px;align-items:center;overflow:hidden;white-space:nowrap}.tr2{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--bg2)}.tr2 b{display:block;height:100%}.bar2 .v{text-align:right;color:var(--muted)}
 .bars2{display:grid;gap:8px}
+.mbx{position:absolute;transform:translate(-50%,0);background:transparent;border:2px solid transparent;border-radius:10px;cursor:pointer;padding:0;z-index:2}
+.mbx:hover,.mbx:focus-visible{background:color-mix(in srgb,var(--coral) 18%,transparent);border-color:var(--coral)}
+.mbx b{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--coral);color:#fff;border-radius:99px;font:800 11px/1.3 var(--body);padding:1px 7px;box-shadow:0 2px 0 var(--shadow);white-space:nowrap}
+.mb{display:grid;gap:8px;border:2px solid var(--line);border-left:5px solid var(--c);border-radius:14px;padding:10px 12px;background:color-mix(in srgb,var(--c) 6%,transparent)}
+.mbh{display:flex;gap:10px;align-items:center}.mbh b{font:800 15px var(--body);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mbn{font:800 12px var(--body);background:var(--coral);color:#fff;border-radius:99px;padding:1px 9px}
+@media(max-width:1000px){#hud{flex-wrap:nowrap;overflow-x:auto;pointer-events:auto;scrollbar-width:none}.chip{flex:none}}
+#tip b{display:block;margin-bottom:2px}
+.ut{font-size:11px;font-weight:800;color:var(--uc)}
+.dl{font-size:11px;font-weight:800;color:var(--gold)}.dl.hot{color:var(--bad)}
+.plate .nw{position:absolute;top:-9px;right:-8px;font:400 7px/1 var(--head);background:var(--coral);color:#fff;border-radius:6px;padding:3px 4px;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{transform:scale(1.15)}}
+.hl{display:flex;gap:14px;align-items:center}.hlist{list-style:none;margin:0;padding:0;display:grid;gap:3px;font-size:12.5px;min-width:0}.hlist small{color:var(--muted);font-weight:600}.hlist .ok{color:var(--mint)}.hlist .ko{color:var(--bad)}
+label.todo{display:flex;gap:10px;align-items:center;cursor:pointer}.todo.done .t b{text-decoration:line-through;color:var(--muted)}.todo input{width:18px;height:18px;accent-color:var(--violet);flex:none}
+.row3{display:grid;grid-template-columns:160px 1fr;gap:10px}
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:45;width:min(420px,calc(100vw - 24px));background:var(--solid);border:2px solid var(--gold);border-radius:14px;padding:12px 14px;box-shadow:0 6px 0 var(--shadow);animation:pop .3s;font-size:13px}
+.toast ul{margin:6px 0;padding:0;list-style:none;display:grid;gap:3px}.toast .dotc{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px}.toast small{color:var(--muted)}
+#fx{position:absolute;left:0;top:0;pointer-events:none;z-index:4;width:100%;height:100%}
+.say{position:absolute;transform:translateX(-50%);background:var(--solid);color:var(--fg);border:2px solid var(--line);border-radius:12px;padding:5px 10px;font-weight:800;font-size:13px;white-space:nowrap;box-shadow:0 3px 0 var(--shadow);animation:pop .2s}
+.say.big{border-color:var(--gold);color:var(--gold)}
+#walkhint{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:6;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 12px;font-size:12.5px;font-weight:700;max-width:calc(100% - 24px);text-align:center}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;font:700 11px var(--body);background:var(--bg2)}
+#walkprompt{position:absolute;transform:translate(-50%,-100%);z-index:7;border:2px solid var(--gold);background:var(--solid);color:var(--fg);border-radius:10px;padding:5px 10px;font:800 13px var(--body);cursor:pointer;box-shadow:0 3px 0 var(--shadow);white-space:nowrap}
+#vv.walking #stage{cursor:crosshair}
+.eggi{font-size:22px;width:34px;text-align:center;flex:none}
+code{font:12px ui-monospace,monospace;background:var(--bg2);border-radius:5px;padding:1px 5px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 <div id="app">
@@ -219,5 +245,5 @@ button.chip{font:inherit;color:inherit;cursor:pointer;text-align:left}button.chi
   <main id="sv" hidden></main>
   <div id="layer"></div>
 </div>
-<script>const D=/*__DATA__*/null;const LOGO=/*__LOGO__*/;</script>
+<script>const D=/*__DATA__*/null;const LOGO=/*__LOGO__*/;const HUB_SQL_TPL=/*__SQL__*/;</script>
 <script>/*__APP__*/</script>
