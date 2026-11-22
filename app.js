@@ -230,11 +230,9 @@ const FAKEREPO = { name: "chantier", ci: null, sessions: [], pushed: new Date().
 
 function layout() {
   const W = stage.clientWidth, H = stage.clientHeight, n = P.length;
-  const ks = W < 560 ? [2] : W < 1000 ? [3, 2] : [4, 3, 2];
-  let f = null;
-  for (const kk of ks) { for (let c = n; c >= 1 && !f; c--) { const r = Math.ceil(n / c), pw = Math.floor(W / kk / c), ph = Math.floor(H / kk / r); if (pw >= 150 && ph >= 120) f = { k: kk, cols: c, rows: r, pw, ph }; } if (f) break; }
-  if (!f) { const kk = ks[ks.length - 1]; f = { k: kk, cols: 1, rows: n, pw: Math.floor(W / kk), ph: Math.max(120, Math.floor(H / kk / n)) }; }
-  ({ k, cols, rows } = f); PW = f.pw; const hzMin = Math.ceil(44 + 116 / k); PH = Math.max(f.ph, hzMin + 64); LW = PW * cols; LH = PH * rows; hz = Math.max(Math.round(PH * .44), hzMin);
+  const kk = W < 560 ? 2 : (W > 1700 && H > 1000 ? 4 : 3), vis = W < 560 ? 1 : W < 1000 ? 2 : 3, hzMin = Math.ceil(44 + 116 / kk);
+  k = kk; rows = 1; cols = n; PW = Math.max(150, Math.floor(W / kk / Math.min(n, vis))); PH = Math.max(Math.floor(H / kk), hzMin + 64);
+  LW = PW * cols; LH = PH * rows; hz = Math.max(Math.round(PH * .44), hzMin);
   cv.width = LW * k; cv.height = LH * k; cv.style.width = cv.width + "px"; cv.style.height = cv.height + "px";
   plots = P.map((p, i) => {
     const rnd = mulberry(hashStr(p.id + "x")), hw = 40 + Math.min(p.repos.length || 3, 13) * 2, cx = Math.round(PW / 2), hy = hz + 14;
@@ -266,7 +264,7 @@ function layout() {
         skin: ["#f5c9a0", "#e0a97a", "#b9784a", "#8a5a3a"][Math.floor(rnd() * 4)], hair: ["#8b8b8b", "#c9c9c9", "#6b3f1d"][Math.floor(rnd() * 3)], tone: 0, pause: rnd() * 30, f: Math.floor(rnd() * 20), dir: 1, moving: false, hop: 0 });
     }
   });
-  buildPlates();
+  buildPlates(); if ($("#navL")) updateNav();
 }
 const hy0 = () => hz + 14 + 24;
 
@@ -421,7 +419,7 @@ let FOUND = new Set(); try { FOUND = new Set(JSON.parse(lsGet("rph.eggs", "[]"))
 const fxLayer = () => { let l = $("#fx"); if (!l) { stage.insertAdjacentHTML("beforeend", '<div id="fx"></div>'); l = $("#fx"); } return l; };
 function say(text, at, ms = 2600, big = false) {
   const el = document.createElement("div"); el.className = "say" + (big ? " big" : ""); el.textContent = text;
-  el.style.left = Math.max(60, Math.min(stage.clientWidth - 60, at.x * k)) + "px"; el.style.top = Math.max(30, at.y * k - 26) + "px"; fxLayer().appendChild(el); setTimeout(() => el.remove(), ms);
+  el.style.left = Math.max(60, at.x * k) + "px"; el.style.top = Math.max(30, at.y * k - 26) + "px"; fxLayer().appendChild(el); setTimeout(() => el.remove(), ms);
 }
 function egg(id, msg, at) {
   if (!FOUND.has(id)) { FOUND.add(id); lsSet("rph.eggs", JSON.stringify([...FOUND])); say(`🏆 Trouvé : ${EGGS[id][0]} (${FOUND.size}/${Object.keys(EGGS).length})`, at, 4600, true); } else if (msg) say(msg, at);
@@ -493,8 +491,9 @@ function stepMe() {
     let row = clampN(Math.floor(HERO.y / PH), 0, rows - 1); const top = row * PH + hz + 12, bot = (row + 1) * PH - 6;
     if (HERO.y > bot) { if (row < rows - 1) { row++; HERO.y = row * PH + hz + 12; } else HERO.y = bot; } else if (HERO.y < top) { if (row > 0) { row--; HERO.y = (row + 1) * PH - 8; } else HERO.y = top; }
   }
+  if (HERO.moving) { const target = HERO.x * k - stage.clientWidth / 2; stage.scrollLeft += (target - stage.scrollLeft) * .15; }
   const L = interactives(); let best = null, bd = 17; L.forEach(i => { const d = Math.hypot(i.x - HERO.x, i.y - HERO.y); if (d < bd) { bd = d; best = i; } }); NEAR = best;
-  const pr = $("#walkprompt"); if (pr) { pr.hidden = !best; if (best) { pr.textContent = "↵ " + best.label; pr.style.left = clampN(HERO.x * k, 90, stage.clientWidth - 90) + "px"; pr.style.top = Math.max(40, (HERO.y - 26) * k) + "px"; } }
+  const pr = $("#walkprompt"); if (pr) { pr.hidden = !best; if (best) { pr.textContent = "↵ " + best.label; pr.style.left = clampN(HERO.x * k - stage.scrollLeft, 90, stage.clientWidth - 90) + "px"; pr.style.top = Math.max(40, (HERO.y - 26) * k - stage.scrollTop) + "px"; } }
 }
 function interact() { if (NEAR) NEAR.act(); }
 function drawMe() {
@@ -1286,11 +1285,26 @@ function projCard(p) {
 }
 
 /* ===================== VUES & ÉVÉNEMENTS ===================== */
+const panBy = d => stage.scrollBy({ left: d * PW * k * .9, behavior: "smooth" });
+function updateNav() {
+  const L = $("#navL"), Rr = $("#navR"); if (!L) return;
+  const max = stage.scrollWidth - stage.clientWidth, x = stage.scrollLeft;
+  L.hidden = x < 4; Rr.hidden = max < 4 || x > max - 4;
+  $("#vdots").innerHTML = max < 4 ? "" : plots.map((pl, i) => { const on = Math.abs(pl.ox * k + PW * k / 2 - x - stage.clientWidth / 2) < PW * k / 2; return `<button class="vd${on ? " on" : ""}" data-i="${i}" style="--c:${pl.p.col}" aria-label="Aller à ${esc(pl.p.name)}" title="${esc(pl.p.name)}"></button>`; }).join("");
+  $$("#vdots .vd").forEach(b => b.onclick = () => { const pl = plots[+b.dataset.i]; stage.scrollTo({ left: pl.ox * k + PW * k / 2 - stage.clientWidth / 2, behavior: "smooth" }); });
+}
+function ensureNav() {
+  if ($("#navL")) return;
+  $("#vv").insertAdjacentHTML("beforeend", '<button id="navL" class="navb" aria-label="Défiler vers la gauche" hidden>‹</button><button id="navR" class="navb" aria-label="Défiler vers la droite" hidden>›</button><div id="vdots"></div>');
+  $("#navL").onclick = () => panBy(-1); $("#navR").onclick = () => panBy(1); stage.addEventListener("scroll", updateNav, { passive: true });
+  stage.addEventListener("wheel", e => { if (!e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX) && stage.scrollWidth > stage.clientWidth && stage.scrollHeight <= stage.clientHeight + 2) { stage.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+  updateNav();
+}
 function refreshAll() { renderHud(); buildPlates(); if (!$("#sv").hidden) renderStats(); if (SEL) renderDrawer(); if (REDUCE) frame(); }
 function showView(v) {
   const vil = v === "village"; $("#vv").hidden = !vil; $("#sv").hidden = vil; $("#tabVillage").setAttribute("aria-pressed", vil); $("#tabStats").setAttribute("aria-pressed", !vil);
   try { history.replaceState(null, "", "#" + v); } catch {}
-  if (vil) { layout(); frame(); } else renderStats();
+  if (vil) { layout(); ensureNav(); frame(); } else renderStats();
 }
 $("#tabVillage").onclick = () => showView("village"); $("#tabStats").onclick = () => showView("stats"); $("#brand").onclick = () => { showView("village"); deselect(); };
 $$("#per [data-p]").forEach(b => b.onclick = () => { PERIOD = +b.dataset.p; lsSet("rph.period", String(PERIOD)); $$("#per [data-p]").forEach(x => x.setAttribute("aria-pressed", x === b)); refreshAll(); });
@@ -1304,7 +1318,7 @@ document.addEventListener("keydown", e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openSearch(); }
   else if (e.key === "/" && !typing) { e.preventDefault(); openSearch(); }
   else if (e.key === "Escape") { if ($(".modal", layer)) closeModal(); else if (SEL) deselect(); }
-  else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && !typing && !$(".modal", layer) && !$("#vv").hidden && !$(".tcard", layer) && !WALK) { const i = SEL ? P.indexOf(SEL.p) : -1; select(P[(i + (e.key === "ArrowRight" ? 1 : -1) + P.length) % P.length], null); }
+  else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && !typing && !$(".modal", layer) && !$("#vv").hidden && !$(".tcard", layer) && !WALK) { e.preventDefault(); panBy(e.key === "ArrowRight" ? 1 : -1); }
 });
 new ResizeObserver(() => { if (!$("#vv").hidden) { layout(); frame(); } }).observe(stage);
 const SINCE = sinceLast();

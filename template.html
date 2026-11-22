@@ -225,6 +225,13 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
 .eggi{font-size:22px;width:34px;text-align:center;flex:none}
 code{font:12px ui-monospace,monospace;background:var(--bg2);border-radius:5px;padding:1px 5px}
 .chk2{display:flex;gap:8px;align-items:center;font-size:13.5px}.chk2 input{width:18px;height:18px;accent-color:var(--violet)}
+#stage{scrollbar-width:thin}
+.navb{position:absolute;top:50%;transform:translateY(-50%);z-index:6;width:44px;height:64px;border-radius:14px;border:2px solid var(--line);background:var(--panel);backdrop-filter:blur(6px);color:var(--fg);font:800 30px/1 var(--body);cursor:pointer;box-shadow:0 3px 0 var(--shadow)}
+.navb:hover{border-color:var(--gold)}#navL{left:8px}#navR{right:8px}
+#vdots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:9px;z-index:6;background:var(--panel);border:2px solid var(--line);border-radius:99px;padding:6px 10px}
+#vdots:empty{display:none}
+.vd{width:13px;height:13px;border-radius:50%;border:2px solid #fff;background:var(--c);opacity:.55;cursor:pointer;padding:0}.vd.on{opacity:1;transform:scale(1.25)}
+@media(max-width:600px){.navb{width:34px;height:52px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 <div id="app">

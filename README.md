@@ -4,7 +4,7 @@ Un village en pixel-art qui suit tous mes projets : une maison par projet, un pe
 Activité, niveau, liens, conversations avec Claude, statistiques, recherche, notes et tutoriel intégré.
 
 ## Utiliser la page
-- **Village** (page d'accueil) : clic sur une maison ou un personnage pour ouvrir sa fiche. Les liens s'ouvrent dans un nouvel onglet.
+- **Village** (page d'accueil) : une seule ligne de maisons qui défile avec les flèches ← →, la molette, les boutons sur les côtés ou les repères en bas. Clic sur une maison ou un personnage pour ouvrir sa fiche. Les liens s'ouvrent dans un nouvel onglet.
 - **Reprendre** : ouvre la conversation Claude la plus récente.
 - **Recherche** : `Ctrl+K` (projets, dépôts, conversations). Flèches `←` `→` : projet suivant ou précédent.
 - **Stats** : calendrier d'activité, classement des dépôts, langages, fiches détaillées.
