@@ -154,7 +154,7 @@ const gSeries = Array.from({ length: NW }, (_, i) => REAL().reduce((s, p) => s +
 const streak = (() => { let n = 0; for (let i = NW - 1; i >= 0 && gSeries[i] > 0; i--) n++; return n; })();
 const nActive = REAL().filter(p => p.status === "active").length;
 const trendPct = (a, b) => b ? Math.round((a - b) / b * 100) : (a ? 100 : 0);
-const trendHTML = (a, b) => { if (b == null) return ""; const t = trendPct(a, b); return t === 0 ? "" : `<span class="tr ${t > 0 ? "up" : "down"}">${t > 0 ? "▲" : "▼"} ${Math.abs(t)}%</span>`; };
+const trendHTML = (a, b, inv) => { if (b == null) return ""; const t = trendPct(a, b); return t === 0 ? "" : `<span class="tr ${(t > 0) !== !!inv ? "up" : "down"}">${t > 0 ? "▲" : "▼"} ${Math.abs(t)}%</span>`; };
 const HUBREPO = (() => { const m = location.hostname.match(/^([^.]+)\.github\.io$/), r = location.pathname.split("/")[1]; return m && r ? `${m[1]}/${r}` : "RomaneCano/project-hub"; })();
 // conversation principale : choisie sur l'appareil > définie dans la configuration > la plus active > la plus récente
 function mainOf(p) {
@@ -215,7 +215,7 @@ function renderHud() {
     + chip("pulse", "var(--mint)", `${nActive}<small style="display:inline;font-size:13px">/${REAL().length}</small>`, "projets actifs", "", "Projets modifiés ces 7 derniers jours")
     + chip("pr", "var(--coral)", prs, "demandes à traiter", "", "Propositions de modifications (pull requests) en attente. Cliquez pour répondre.", "inbox")
     + chip("alert", al ? (A[0].sev === "high" ? "var(--bad)" : "var(--warn)") : "var(--mint)", al, al ? "à surveiller" : "rien à signaler", "", "Tests en échec, site injoignable, propositions qui traînent, échéances, usage…", "alerts")
-    + chip("users", "var(--mint)", uConn ? (uAct != null ? uAct : fmtN(uEv)) : "—", uConn ? (uAct != null ? "utilisateurs actifs (7 j)" : `données saisies (${PLABEL[PERIOD]})`) : "usage non connecté", "", "Qui utilise vos sites : utilisateurs actifs et données saisies. Cliquez pour le détail.", "usage")
+    + chip("users", "var(--mint)", uConn ? (uAct != null ? uAct : fmtN(uEv)) : "—", uConn ? (uAct != null ? "utilisateurs actifs (7 j)" : `événements mesurés (${PLABEL[PERIOD]})`) : "usage non connecté", "", "Qui utilise vos sites : utilisateurs actifs et données saisies. Cliquez pour le détail.", "usage")
     + chip("flame", "var(--violet)", streak, "semaines d'affilée", "", "Semaines consécutives avec au moins un commit");
   const n = $("#inboxN"); n.textContent = prs; n.hidden = !prs;
   $$("#hud [data-act]").forEach(b => b.onclick = () => b.dataset.act === "inbox" ? openInbox() : b.dataset.act === "alerts" ? openAlerts() : openUsage());
@@ -259,7 +259,7 @@ function layout() {
       chars.push({ p, pi, r: { name: a.name || a.login, ci: null, sessions: [], pushed: a.last, full: "v:" + (a.login || a.name) }, vis: a, rnd, mode: age < 2 ? "work" : "stroll", x: 14 + rnd() * (PW - 28), y: hy0() + rnd() * (PH - hy0() - 10), tx: 14 + rnd() * (PW - 28), ty: hy0() + rnd() * (PH - hy0() - 10),
         skin: ["#f5c9a0", "#e0a97a", "#b9784a", "#8a5a3a"][Math.floor(rnd() * 4)], hair: ["#2b1d12", "#6b3f1d", "#d6a73a", "#222"][Math.floor(rnd() * 4)], tone: 0, pause: rnd() * 30, f: Math.floor(rnd() * 20), dir: 1, moving: false, hop: 0 });
     });
-    const us = usageOf(p), nU = us && us.st !== "none" ? (us.a7 != null ? Math.min(14, us.a7) : Math.min(8, Math.ceil(us.ev7 / 3))) : 0;
+    const us = usageOf(p), nU = us && us.st !== "none" && us.st !== "na" ? us.crowd : 0;
     for (let ui = 0; ui < nU; ui++) {   // utilisateurs du site, d'après la base de l'application
       const rnd = mulberry(hashStr("u" + p.id + ui));
       chars.push({ p, pi, r: { name: "Utilisateur", ci: null, sessions: [], pushed: null, full: "u:" + p.id + ui }, usr: true, rnd, mode: "stroll", x: 14 + rnd() * (PW - 28), y: hy0() + rnd() * (PH - hy0() - 10), tx: 14 + rnd() * (PW - 28), ty: hy0() + rnd() * (PH - hy0() - 10),
@@ -684,7 +684,7 @@ function renderDrawer() {
   $$("[data-inbox]", d).forEach(b => b.onclick = () => openInbox(b.dataset.inbox, "pr"));
   $$("[data-team]", d).forEach(b => b.onclick = () => { if (!LOCALTEAM.includes(b.dataset.team)) LOCALTEAM.push(b.dataset.team); lsSet("rph.team", JSON.stringify(LOCALTEAM)); reclassify(); });
   $$("[data-unteam]", d).forEach(b => b.onclick = () => { LOCALTEAM = LOCALTEAM.filter(x => x !== b.dataset.unteam); lsSet("rph.team", JSON.stringify(LOCALTEAM)); reclassify(); });
-  bindTodo(d, p); $$("[data-usage]", d).forEach(b => b.onclick = () => openUsageSetup(p));
+  bindTodo(d, p); $$("[data-usage]", d).forEach(b => b.onclick = () => openUsageChoice(p));
   const ms = $("#mainsave", d);
   if (ms) {
     ms.onclick = () => { const v = $("#mainurl", d).value.trim(); if (v && !/^https?:\/\//i.test(v)) { $("#mainmsg", d).textContent = "Collez un lien complet, qui commence par https://"; return; } lsSet("rph.main." + p.id, v); refreshAll(); };
@@ -968,14 +968,24 @@ function openEdit(p) {
 /* ===================== USAGE, SANTÉ, ALERTES, ÉCHÉANCES ===================== */
 const fmtN = n => new Intl.NumberFormat("fr-FR").format(n);
 const fmtB = b => b > 1e9 ? (b / 1e9).toFixed(1) + " Go" : b > 1e6 ? (b / 1e6).toFixed(1) + " Mo" : Math.max(1, Math.round(b / 1e3)) + " Ko";
-const UST = { used: ["Utilisé", "var(--mint)"], low: ["Peu utilisé", "var(--warn)"], none: ["Pas utilisé", "#8d8ab8"] };
+const UST = { used: ["Utilisé", "var(--mint)"], low: ["Peu utilisé", "var(--warn)"], none: ["Pas utilisé", "#8d8ab8"], na: ["Surveillé", "#8d8ab8"] };
 const UERR = { "no-key": "La clé de lecture (secret GitHub HUB_USAGE_KEY) est absente.", "http-400": "La base a refusé la clé de lecture, ou la fonction hub_stats est incomplète.", "http-401": "La clé publique du site est refusée.", "http-403": "Accès refusé par la base.", "http-404": "La fonction hub_stats n'existe pas encore dans la base : exécutez le script SQL.", fetch: "Connexion à la base impossible." };
 const usageState = p => !p.usage ? "none" : !p.usageData ? "wait" : p.usageData.ok ? "ok" : "error";
+const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+const SRCN = { supabase: "Base Supabase", endpoint: "API", uptimerobot: "UptimeRobot", sentry: "Sentry", betterstack: "Better Stack" };
+const NOKEY = { supabase: "le secret HUB_USAGE_KEY", endpoint: "le secret HUB_USAGE_TOKEN", uptimerobot: "le secret HUB_UPTIMEROBOT_KEY", sentry: "le secret HUB_SENTRY_TOKEN", betterstack: "les secrets HUB_BETTERSTACK_USER et HUB_BETTERSTACK_PASS" };
+const srcErr = (k, e) => `${SRCN[k] || k} : ` + (e === "no-key" ? `il manque ${NOKEY[k] || "la clé"}.` : e === "http-401" || e === "http-403" ? "accès refusé, vérifiez la clé et ses droits." : e === "http-404" ? (k === "supabase" ? "la fonction hub_stats n'existe pas encore dans la base : exécutez le script SQL." : "adresse introuvable, vérifiez la configuration.") : e === "http-400" ? (k === "supabase" ? "clé de lecture refusée ou fonction incomplète." : "requête refusée, vérifiez la configuration (adresse, nom de la source).") : /^api-/.test(e || "") ? `refus de l'API (${e.slice(4)}).` : "connexion impossible.");
+const usageErrText = p => { const d = p.usageData; const errs = d?.errors || (d?.error ? { [Object.keys(p.usage || {})[0] || "supabase"]: d.error } : {}); return Object.entries(errs).map(([k, e]) => srcErr(k, e)); };
+const uptAvg = u => { const r = (u.upt || []).map(m => m.ratio30).filter(x => x != null); return r.length ? r.reduce((a, b) => a + b, 0) / r.length : null; };
+const UPST = { 2: ["En ligne", "var(--mint)"], 8: ["Semble hors ligne", "var(--warn)"], 9: ["Hors ligne", "var(--bad)"], 0: ["En pause", "#8d8ab8"], 1: ["Pas encore vérifié", "#8d8ab8"] };
 function usageOf(p) {
   const u = p.ud; if (!u) return null;
-  const ev = u.events, us = u.users, ev7 = sum(ev, 7), ev30 = sum(ev, 30), a7 = us ? us.active7 : null, a30 = us ? us.active30 : null;
-  return { ev, ev7, ev30, evP: cP(ev), evPrev: cPrev(ev), a7, a30, users: us, last: u.last, st: (ev7 > 0 || a7 > 0) ? "used" : (ev30 > 0 || a30 > 0) ? "low" : "none",
-    days30: ev.slice(-30).filter(v => v > 0).length, tables: [...u.tables].sort((a, b) => b.rows - a.rows), bytes: u.dbBytes, total: u.tables.reduce((s, t) => s + t.rows, 0) };
+  const ev = u.events || zeros(84), us = u.users, S = u.sources || {}, has = u.hasEvents !== false && (u.hasEvents || !!us || (u.tables || []).length > 0);
+  const ev7 = sum(ev, 7), ev30 = sum(ev, 30), a7 = us ? us.active7 : null, a30 = us ? us.active30 : null;
+  return { ev, ev7, ev30, evP: cP(ev), evPrev: cPrev(ev), evLabel: u.eventsLabel || "données saisies", has, a7, a30, users: us, last: u.last, src: S, errs: u.errors || {},
+    st: !has ? "na" : (ev7 > 0 || a7 > 0) ? "used" : (ev30 > 0 || a30 > 0) ? "low" : "none", days30: ev.slice(-30).filter(v => v > 0).length,
+    tables: [...(u.tables || [])].sort((a, b) => b.rows - a.rows), bytes: u.dbBytes || 0, total: (u.tables || []).reduce((s, t) => s + t.rows, 0),
+    upt: S.uptimerobot?.monitors || null, sen: S.sentry || null, bs: S.betterstack || null, crowd: us ? Math.min(14, a7) : (S.supabase || S.endpoint) ? Math.min(8, Math.ceil(ev7 / 3)) : 0 };
 }
 function copyTo(btn, text, pre) {
   btn.onclick = async () => { try { await navigator.clipboard.writeText(text); btn.textContent = "Copié ✓"; } catch { if (pre) { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } btn.textContent = "Sélectionné, faites Ctrl+C"; } };
@@ -985,31 +995,79 @@ const miniBars = (arr, col, w = 90, h = 22) => { const mx = Math.max(1, ...arr),
 /* --- usage d'un site --- */
 function usageBlock(p) {
   const st = usageState(p), btn = label => `<button class="btn" data-usage="${esc(p.id)}">${ic("plus")}${label}</button>`; let inner;
-  if (st === "none") inner = `<p class="hint">Combien de personnes utilisent ce site, quelles données elles saisissent, à quelle fréquence : ce n'est pas encore connecté. Le hub lit uniquement des totaux dans la base de l'application, jamais de données personnelles.</p>${btn("Connecter l'usage de ce site")}`;
-  else if (st === "wait") inner = `<p class="hint">Source configurée. Les chiffres arrivent après la prochaine mise à jour.</p>${btn("Revoir la connexion")}`;
-  else if (st === "error") inner = `<p class="warn">${esc(UERR[p.usageData.error] || "Lecture impossible.")}</p>${btn("Revoir la connexion")}`;
+  if (st === "none") inner = `<p class="hint">Qui utilise ce projet, quelles erreurs il rencontre, s'il est disponible : ce n'est pas encore connecté. Le hub lit uniquement des totaux (base Supabase, Sentry, Better Stack, UptimeRobot), jamais de données personnelles.</p>${btn("Connecter l'usage de ce projet")}`;
+  else if (st === "wait") inner = `<p class="hint">Sources configurées. Les chiffres arrivent après la prochaine mise à jour.</p>${btn("Revoir la connexion")}`;
+  else if (st === "error") inner = `${usageErrText(p).map(m => `<p class="warn">${esc(m)}</p>`).join("")}${btn("Revoir la connexion")}`;
   else {
-    const u = usageOf(p), [lab, col] = UST[u.st], n = PERIOD <= 30 ? 30 : 84;
-    inner = `<div class="pill" style="--pc:${col};justify-self:start"><span class="st" style="background:${col}"></span>${lab}</div>
-      <div class="tiles">${u.users ? tile(fmtN(u.users.total), "Utilisateurs inscrits") + tile(`${u.a7} · ${u.a30}`, "Actifs sur 7 j · 30 j") : ""}${tile(`${fmtN(u.evP)} ${trendHTML(u.evP, u.evPrev)}`, `Données saisies sur ${PLABEL[PERIOD]}`)}${tile(`${u.days30}/30`, "Jours avec activité (30 j)")}${tile(rel(u.last), "Dernière activité")}${tile(fmtN(u.total), `Lignes en base · ${fmtB(u.bytes)}`)}</div>
-      <div class="spark"><h3>Données saisies par jour (${n} derniers jours)</h3>${bars(u.ev.slice(-n), col)}</div>
-      <ul class="list">${u.tables.slice(0, 6).map(t => `<li><div class="who"><span class="t"><b>${esc(t.name)}</b><small>${fmtN(t.rows)} lignes · +${t.n7} sur 7 j · +${t.n30} sur 30 j · ${t.last ? "dernière " + rel(t.last) : "sans date"}</small></span></div></li>`).join("")}</ul>
-      <p class="hint">Mesuré dans la base de l'application, ${rel(p.ud.at)}. « Données saisies » = lignes ajoutées par les utilisateurs.</p>${btn("Revoir la connexion")}`;
+    const u = usageOf(p), [lab, col] = UST[u.st], n = PERIOD <= 30 ? 30 : 84, tl = [], bl = [];
+    if (u.users) tl.push(tile(fmtN(u.users.total), "Utilisateurs inscrits"), tile(`${u.a7} · ${u.a30}`, "Actifs sur 7 j · 30 j"));
+    if (u.has) tl.push(tile(`${fmtN(u.evP)} ${trendHTML(u.evP, u.evPrev)}`, `${cap(u.evLabel)} sur ${PLABEL[PERIOD]}`), tile(`${u.days30}/30`, "Jours avec activité (30 j)"));
+    if (u.sen) { const eP = cP(u.sen.errors), ePv = cPrev(u.sen.errors); tl.push(tile(`${fmtN(eP)} ${trendHTML(eP, ePv, true)}`, `Erreurs sur ${PLABEL[PERIOD]}`)); if (u.sen.tx && u.evLabel !== "requêtes tracées") tl.push(tile(fmtN(cP(u.sen.tx)), `Requêtes tracées sur ${PLABEL[PERIOD]}`)); if (u.sen.unresolved != null) tl.push(tile(fmtN(u.sen.unresolved), "Problèmes non résolus")); }
+    if (u.upt?.length) { const r = uptAvg(u); if (r != null) tl.push(tile(`${r.toFixed(2)} %`, "Disponibilité sur 30 jours")); }
+    if (u.last) tl.push(tile(rel(u.last), "Dernière activité")); if (u.total) tl.push(tile(fmtN(u.total), `Lignes en base · ${fmtB(u.bytes)}`));
+    if (u.has) bl.push(`<div class="spark"><h3>${cap(u.evLabel)} par jour (${n} derniers jours)</h3>${bars(u.ev.slice(-n), col)}</div>`);
+    if (u.sen) bl.push(`<div class="spark"><h3>Erreurs par jour (${n} derniers jours)</h3>${bars(u.sen.errors.slice(-n), "var(--bad)")}</div>`);
+    const mons = (u.upt || []).map(m => { const [ml, mc] = UPST[m.status] || ["?", "#8d8ab8"]; return `<li><a ${ext("https://uptimerobot.com/dashboard")}><span class="st" style="background:${mc}"></span><span class="t"><b>${esc(m.name)}</b><small>${ml}${m.ratio7 != null ? ` · ${m.ratio7} % sur 7 j` : ""}${m.ratio30 != null ? ` · ${m.ratio30} % sur 30 j` : ""}${m.avgMs ? ` · réponse ~${m.avgMs} ms` : ""}${m.interval ? ` · contrôle toutes les ${m.interval >= 120 ? Math.round(m.interval / 60) + " min" : m.interval + " s"}` : ""}${m.lastDown ? ` · dernière panne ${rel(m.lastDown)}` : ""}</small></span>${ic("ext")}</a></li>`; }).join("");
+    const errs = Object.entries(u.errs).map(([k, e]) => `<p class="warn">${esc(srcErr(k, e))}</p>`).join("");
+    inner = `<div class="pill" style="--pc:${col};justify-self:start"><span class="st" style="background:${col}"></span>${lab}</div>${errs}
+      <div class="tiles">${tl.join("")}</div>${bl.join("")}${mons ? `<ul class="list">${mons}</ul>` : ""}
+      ${u.tables.length ? `<ul class="list">${u.tables.slice(0, 6).map(t => `<li><div class="who"><span class="t"><b>${esc(t.name)}</b><small>${fmtN(t.rows)} lignes · +${t.n7} sur 7 j · +${t.n30} sur 30 j · ${t.last ? "dernière " + rel(t.last) : "sans date"}</small></span></div></li>`).join("")}</ul>` : ""}
+      ${u.sen ? `<div class="acts"><a class="btn" ${ext(u.sen.url)}>${ic("ext")}Ouvrir Sentry</a></div>` : ""}
+      <p class="hint">Mesuré ${rel(p.ud.at)} à partir de : ${Object.keys(u.src).map(k => SRCN[k] || k).join(", ")}.</p>${btn("Revoir la connexion")}`;
   }
-  return `<section id="usage"><h3>Usage du site</h3>${inner}</section>`;
+  return `<section id="usage"><h3>Usage et fiabilité</h3>${inner}</section>`;
 }
 function usageTable() {
   return `<div class="tbl"><table><thead><tr><th>Projet</th><th>Statut</th><th>Utilisateurs</th><th>Actifs 7 j · 30 j</th><th>Données (${PLABEL[PERIOD]})</th><th>Jours actifs / 30</th><th>Dernière activité</th><th>Activité</th></tr></thead><tbody>${REAL().map(p => {
     const u = usageOf(p), st = usageState(p);
-    if (!u) return `<tr><td>${emb(p, 18)} ${esc(p.name)}</td><td colspan="7"><span class="hint">${st === "none" ? "Non connecté" : st === "wait" ? "En attente de la première lecture" : esc(UERR[p.usageData.error] || "Erreur de lecture")}</span> <button class="mini" data-usage="${esc(p.id)}">${st === "none" ? "Connecter" : "Revoir"}</button></td></tr>`;
+    if (!u) return `<tr><td>${emb(p, 18)} ${esc(p.name)}</td><td colspan="7"><span class="hint">${st === "none" ? "Non connecté" : st === "wait" ? "En attente de la première lecture" : esc(usageErrText(p).join(" ") || "Erreur de lecture")}</span> <button class="mini" data-usage="${esc(p.id)}">${st === "none" ? "Connecter" : "Revoir"}</button></td></tr>`;
     const [lab, col] = UST[u.st];
-    return `<tr><td>${emb(p, 18)} ${esc(p.name)}</td><td><span class="pill" style="--pc:${col}">${lab}</span></td><td class="n">${u.users ? fmtN(u.users.total) : "—"}</td><td class="n">${u.users ? `${u.a7} · ${u.a30}` : "—"}</td><td class="n">${fmtN(u.evP)} ${trendHTML(u.evP, u.evPrev)}</td><td class="n">${u.days30}/30</td><td class="n">${rel(u.last)}</td><td>${miniBars(u.ev.slice(-30), col)}</td></tr>`; }).join("")}</tbody></table></div>`;
+    return `<tr><td>${emb(p, 18)} ${esc(p.name)}</td><td><span class="pill" style="--pc:${col}">${lab}</span></td><td class="n">${u.users ? fmtN(u.users.total) : "—"}</td><td class="n">${u.users ? `${u.a7} · ${u.a30}` : "—"}</td><td class="n">${u.has ? `${fmtN(u.evP)} ${trendHTML(u.evP, u.evPrev)}` : "—"}</td><td class="n">${u.has ? u.days30 + "/30" : "—"}</td><td class="n">${u.last ? rel(u.last) : "—"}</td><td>${u.has ? miniBars(u.ev.slice(-30), col) : ""}</td></tr>`; }).join("")}</tbody></table></div>`;
 }
 function openUsage() {
   const sh = modal(`${shead("Usage des sites")}<p class="hint">Qui utilise vos applications et à quelle fréquence : utilisateurs, données saisies, jours d'activité. Lecture de totaux uniquement.</p>${usageTable()}`);
-  $$("[data-usage]", sh).forEach(b => b.onclick = () => openUsageSetup(P.find(p => p.id === b.dataset.usage)));
+  $$("[data-usage]", sh).forEach(b => b.onclick = () => openUsageChoice(P.find(p => p.id === b.dataset.usage)));
 }
 const genKey = () => { const a = new Uint8Array(24); crypto.getRandomValues(a); return [...a].map(b => b.toString(16).padStart(2, "0")).join(""); };
+function openUsageChoice(p) {
+  const sh = modal(`${shead("Connecter l'usage · " + esc(p.name))}
+    <p class="hint">D'où viennent les données d'usage de ce projet ? Vous pouvez en combiner plusieurs. Dans tous les cas, le hub ne lit que des totaux, avec des clés en lecture seule.</p>
+    <button class="btn big" id="ucMon"><span><b>Sentry, Better Stack, UptimeRobot</b><small>Erreurs et requêtes, logs (vrai trafic), disponibilité des sites</small></span></button>
+    <button class="btn big" id="ucSb"><span><b>Base de données Supabase</b><small>Utilisateurs inscrits et actifs, données saisies par jour</small></span></button>`);
+  $("#ucMon", sh).onclick = () => openMonitorSetup(p); $("#ucSb", sh).onclick = () => openUsageSetup(p);
+}
+function openMonitorSetup(p) {
+  const u0 = p.usage || {};
+  const sh = modal(`${shead("Sentry, Better Stack, UptimeRobot · " + esc(p.name))}
+    <p class="hint">Cochez les outils que ce projet utilise. Les clés vont dans les secrets GitHub, jamais dans la page.</p>
+    <label class="chk2"><input type="checkbox" id="mxUr" ${u0.uptimerobot ? "checked" : ""}> <b>UptimeRobot</b> · disponibilité, temps de réponse, fréquence des contrôles</label>
+    <div class="field"><label for="mxUrM">Moniteurs à suivre (facultatif : noms ou numéros séparés par des virgules, sinon tous)</label><input id="mxUrM" class="fi" type="text" value="${esc((u0.uptimerobot?.monitors || []).join(", "))}"></div>
+    <label class="chk2"><input type="checkbox" id="mxSe" ${u0.sentry ? "checked" : ""}> <b>Sentry</b> · erreurs par jour, requêtes tracées, problèmes non résolus</label>
+    <div class="field"><label for="mxSeO">Organisation Sentry (le début de l'adresse : https://<b>mon-organisation</b>.sentry.io)</label><input id="mxSeO" class="fi" type="text" placeholder="mon-organisation" value="${esc(u0.sentry?.org || "")}"></div>
+    <label class="chk2"><input type="checkbox" id="mxBs" ${u0.betterstack ? "checked" : ""}> <b>Better Stack</b> · volume de logs par jour (vrai trafic)</label>
+    <div class="field"><label for="mxBsH">Adresse du connecteur (carte « ClickHouse HTTP » dans Integrations)</label><input id="mxBsH" class="fi" type="text" placeholder="eu-nbg-2-connect.betterstackdata.com" value="${esc(u0.betterstack?.host || "")}"></div>
+    <div class="field"><label for="mxBsS">Nom de la source (de la forme t123456_mon_app)</label><input id="mxBsS" class="fi" type="text" placeholder="t123456_mon_app" value="${esc(u0.betterstack?.source || "")}"></div>
+    <p id="aerr" class="warn" hidden></p><div class="acts"><button class="btn main" id="mxGo">Préparer les étapes</button></div><div id="aout"></div>`);
+  $("#mxGo", sh).onclick = () => {
+    const err = $("#aerr", sh), fail = m => { err.textContent = m; err.hidden = false; }; err.hidden = true;
+    const usage = { ...(u0.supabase ? { supabase: u0.supabase } : {}), ...(u0.ignore ? { ignore: u0.ignore } : {}), ...(u0.endpoint ? { endpoint: u0.endpoint } : {}) }, need = [];
+    if ($("#mxUr", sh).checked) { const mons = $("#mxUrM", sh).value.split(",").map(x => x.trim()).filter(Boolean); usage.uptimerobot = mons.length ? { monitors: mons } : {}; need.push(["HUB_UPTIMEROBOT_KEY", "UptimeRobot : clé API en lecture seule (My Settings, API Settings)", "https://uptimerobot.com/dashboard#mySettings"]); }
+    if ($("#mxSe", sh).checked) { const org = $("#mxSeO", sh).value.trim().toLowerCase(); if (!/^[a-z0-9][a-z0-9-]*$/.test(org)) return fail("Indiquez l'organisation Sentry (par exemple mon-organisation)."); usage.sentry = { ...(u0.sentry || {}), org }; need.push(["HUB_SENTRY_TOKEN", "Sentry : token d'authentification avec les droits org:read, project:read et event:read", `https://${org}.sentry.io/settings/auth-tokens/`]); }
+    if ($("#mxBs", sh).checked) { const host = $("#mxBsH", sh).value.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, ""), source = $("#mxBsS", sh).value.trim();
+      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(host)) return fail("Collez l'adresse du connecteur Better Stack (sans https://)."); if (!/^t\d+_[a-z0-9_]+$/i.test(source)) return fail("Le nom de la source ressemble à t123456_mon_app.");
+      usage.betterstack = { host, source }; need.push(["HUB_BETTERSTACK_USER", "Better Stack : nom d'utilisateur ClickHouse HTTP (Integrations, Connect ClickHouse HTTP client)", "https://betterstack.com/docs/logs/query-api/connect-remotely"], ["HUB_BETTERSTACK_PASS", "Better Stack : mot de passe associé (affiché une seule fois à la création)", "https://betterstack.com/docs/logs/query-api/connect-remotely"]); }
+    if (!need.length && !Object.keys(usage).length) return fail("Cochez au moins un outil.");
+    EDITS[p.id] = { ...(EDITS[p.id] || {}), usage }; saveEdits(); P.forEach(prep); refreshAll();
+    const cfg = JSON.stringify(fullConfig(), null, 2);
+    $("#aout", sh).innerHTML = `<ol class="steps">
+      ${need.map(([name, why, link]) => `<li><span>Créez le secret GitHub <b>${name}</b><br><small class="hint">${esc(why)}</small></span><a class="btn" ${ext(link)}>${ic("ext")}Où le trouver</a></li>`).join("")}
+      <li><span>Ajoutez les secrets dans GitHub</span><a class="btn" ${ext(`https://github.com/${HUBREPO}/settings/secrets/actions/new`)}>${ic("ext")}Ouvrir</a></li>
+      <li><span>Copiez la configuration, collez-la dans le secret <b>HUB_PROJECTS</b></span><button class="btn" id="cpcfg">${ic("copy")}Copier</button></li>
+      <li><span>Lancez la mise à jour (Run workflow)</span><a class="btn" ${ext(`https://github.com/${HUBREPO}/actions/workflows/sync.yml`)}>${ic("ext")}Ouvrir</a></li></ol>
+      <pre class="json" id="ajson">${esc(cfg)}</pre>`;
+    copyTo($("#cpcfg", sh), cfg, $("#ajson", sh)); $("#aout", sh).scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+}
 function openUsageSetup(p) {
   const u0 = p.usage?.supabase || {}, sh = modal(`${shead("Connecter l'usage · " + esc(p.name))}
     <p class="hint">Le hub lit uniquement des <b>totaux</b> dans la base de l'application : lignes par table, lignes ajoutées par jour, nombre d'utilisateurs inscrits et actifs. Jamais de noms, d'e-mails ni de contenus. Pour les applications Supabase.</p>
@@ -1041,7 +1099,7 @@ function openUsageSetup(p) {
 function sitesBlock(p) {
   const cs = p.checks || [];
   if (!p.sites.length) return "";
-  return `<section><h3>Disponibilité du site</h3>${cs.length ? `<ul class="list">${cs.map(c => { let host = c.url; try { host = new URL(c.url).hostname; } catch {} const cert = c.certDays == null ? "" : c.certDays < 0 ? " · certificat expiré" : ` · certificat valide ${c.certDays} j`;
+  return `<section><h3>Disponibilité du site</h3>${cs.length ? `<ul class="list">${cs.map(c => { let host = c.url; try { const uu = new URL(c.url); host = uu.hostname + (uu.pathname.length > 1 ? uu.pathname.replace(/\/$/, "") : ""); } catch {} const cert = c.certDays == null ? "" : c.certDays < 0 ? " · certificat expiré" : ` · certificat valide ${c.certDays} j`;
     return `<li><a ${ext(c.url)}><span class="st" style="background:${c.ok ? "var(--mint)" : "var(--bad)"}"></span><span class="t"><b>${esc(host)}</b><small>${c.ok ? `En ligne · HTTP ${c.status} · ${c.ms} ms` : `Injoignable${c.status ? " · HTTP " + c.status : ""}`}${cert}</small></span>${ic("ext")}</a></li>`; }).join("")}</ul>` : '<p class="hint">Pas encore vérifié : le contrôle se fait à chaque mise à jour.</p>'}</section>`;
 }
 
@@ -1075,7 +1133,9 @@ function health(p) {
   if (p.repos.some(r => r.ci)) add("Tests automatiques", 25, Math.max(0, 25 - p.ciFail * 10), p.ciFail ? `${p.ciFail} dépôt(s) en échec` : "tous au vert");
   const stale = p.pulls.filter(x => ageDays(x.created) > 30).length; add("Propositions en attente", 20, stale === 0 ? 20 : stale < 3 ? 12 : 4, stale ? `${stale} attendent depuis plus de 30 jours` : "aucune ne traîne");
   if (p.checks?.length) { const down = p.checks.filter(c => !c.ok).length, cert = p.checks.some(c => c.certDays != null && c.certDays < 14); add("Site en ligne", 20, down ? 0 : cert ? 10 : 20, down ? "site injoignable" : cert ? "certificat bientôt expiré" : "en ligne"); }
-  const u = usageOf(p); if (u) add("Usage", 10, u.st === "used" ? 10 : u.st === "low" ? 5 : 0, UST[u.st][0].toLowerCase());
+  const u = usageOf(p); if (u && u.has) add("Usage", 10, u.st === "used" ? 10 : u.st === "low" ? 5 : 0, UST[u.st][0].toLowerCase());
+  if (u?.upt?.length && uptAvg(u) != null) { const r = uptAvg(u); add("Disponibilité", 20, r >= 99.5 ? 20 : r >= 99 ? 14 : r >= 97 ? 8 : 0, `${r.toFixed(2)} % sur 30 jours (UptimeRobot)`); }
+  if (u?.sen) { const e7 = sum(u.sen.errors, 7), e14 = sum(u.sen.errors, 7, 7); add("Erreurs applicatives", 15, e7 === 0 ? 15 : e7 <= e14 ? 10 : e7 > e14 * 2 + 20 ? 2 : 6, e7 === 0 ? "aucune erreur cette semaine" : `${e7} erreurs cette semaine (${e14} la semaine d'avant)`); }
   const score = max ? Math.round(got / max * 100) : 0; return { score, parts, col: score >= 80 ? "var(--mint)" : score >= 55 ? "var(--warn)" : "var(--bad)" };
 }
 function healthBlock(p) {
@@ -1087,11 +1147,15 @@ function alerts() {
   const A = [], add = (sev, p, title, detail, extra = {}) => A.push({ sev, p, title, detail, ...extra });
   REAL().forEach(p => {
     p.repos.filter(r => r.ci?.status === "failure").forEach(r => add("high", p, `Tests en échec : ${r.name}`, "Le dernier pipeline automatique a échoué.", { url: r.ci.url }));
-    (p.checks || []).forEach(c => { let h = c.url; try { h = new URL(c.url).hostname; } catch {} if (!c.ok) add("high", p, `Site injoignable : ${h}`, c.status ? `Réponse HTTP ${c.status}.` : "Aucune réponse.", { url: c.url }); else if (c.certDays != null && c.certDays < 14) add(c.certDays < 5 ? "high" : "med", p, `Certificat bientôt expiré : ${h}`, `Expire dans ${Math.max(0, c.certDays)} jour(s).`, { url: c.url }); });
+    (p.checks || []).forEach(c => { let h = c.url; try { const uu = new URL(c.url); h = uu.hostname + (uu.pathname.length > 1 ? uu.pathname.replace(/\/$/, "") : ""); } catch {} if (!c.ok) add("high", p, `Site injoignable : ${h}`, c.status ? `Réponse HTTP ${c.status}.` : "Aucune réponse.", { url: c.url }); else if (c.certDays != null && c.certDays < 14) add(c.certDays < 5 ? "high" : "med", p, `Certificat bientôt expiré : ${h}`, `Expire dans ${Math.max(0, c.certDays)} jour(s).`, { url: c.url }); });
     const stale = p.pulls.filter(x => ageDays(x.created) > 30); if (stale.length) add("med", p, `${stale.length} proposition${stale.length > 1 ? "s" : ""} en attente depuis plus de 30 jours`, "À relire, fusionner ou fermer.", { inbox: true });
     const mine = p.pulls.filter(x => x.reviewers?.some(r => ME.has(lower(r)))); if (mine.length) add("med", p, `Votre avis est demandé sur ${mine.length} proposition${mine.length > 1 ? "s" : ""}`, mine[0].title, { url: mine[0].url });
     if (ageDays(p.pushed) > 30 && p.prs) add("low", p, "Projet endormi avec des propositions ouvertes", `Aucune activité depuis ${Math.floor(ageDays(p.pushed))} jours.`, { inbox: true });
-    const st = usageState(p); if (st === "error") add("med", p, "Lecture de l'usage impossible", UERR[p.usageData.error] || "", { usage: true });
+    const st = usageState(p); if (st === "error") add("med", p, "Lecture de l'usage impossible", usageErrText(p).join(" "), { usage: true });
+    const U = usageOf(p);
+    (U?.upt || []).forEach(m => { if ([8, 9].includes(m.status)) add("high", p, `Hors ligne selon UptimeRobot : ${m.name}`, m.lastDown ? "Dernière panne " + rel(m.lastDown) : "", { url: "https://uptimerobot.com/dashboard" }); else if (m.ratio30 != null && m.ratio30 < 99) add("med", p, `Disponibilité faible : ${m.name}`, `${m.ratio30} % sur 30 jours.`, { url: "https://uptimerobot.com/dashboard" }); });
+    if (U?.sen) { const e7 = sum(U.sen.errors, 7), e14 = sum(U.sen.errors, 7, 7); if (e7 >= 20 && e7 > e14 * 2) add("med", p, "Hausse des erreurs applicatives", `${e7} erreurs cette semaine contre ${e14} la semaine d'avant.`, { url: U.sen.url }); if (U.sen.unresolved > 50) add("low", p, `${U.sen.unresolved} problèmes non résolus dans Sentry`, "", { url: U.sen.url }); }
+    if (st === "ok") Object.entries(U.errs).forEach(([k, e]) => add("med", p, `Lecture impossible : ${SRCN[k] || k}`, srcErr(k, e).replace(/^[^:]+ : /, ""), { usage: true }));
     const u = usageOf(p); if (u && u.st === "none") add("low", p, "Aucune activité utilisateur depuis 30 jours", "Le site ne semble plus utilisé.", { usage: true });
     if (p.deadline?.date) { const n = daysTo(p.deadline.date); if (n <= 14) add(n <= 3 ? "high" : "med", p, `${p.deadline.label || "Échéance"} : ${dueTxt(n)}`, fdate(p.deadline.date)); }
     (p.renewals || []).forEach(x => { const n = daysTo(x.date); if (n <= 30) add(n <= 7 ? "high" : "med", p, `Renouvellement : ${x.label} (${dueTxt(n)})`, fdate(x.date) + (x.cost ? " · " + x.cost : "")); });
@@ -1103,7 +1167,7 @@ function openAlerts() {
   const A = alerts(), sh = modal(`${shead("À surveiller")}<p class="hint">Ce qui demande votre attention, tous projets confondus : tests en échec, site injoignable, certificats, propositions qui traînent, échéances, usage.</p>
     ${A.length ? `<ul class="list">${A.map((a, i) => `<li class="two">${a.url ? `<a ${ext(a.url)} style="--c:${a.p.col}">` : `<button data-al="${i}" style="--c:${a.p.col}">`}${emb(a.p, 24)}<span class="t"><b>${esc(a.title)}</b><small>${esc(a.p.name)} · ${esc(a.detail || "")}</small></span><span class="kind" style="--kc:${SEVN[a.sev][1]}">${SEVN[a.sev][0]}</span>${a.url ? "</a>" : "</button>"}</li>`).join("")}</ul>` : '<p class="warn" style="--w:var(--mint)">✅ Rien à signaler. Tout est au vert.</p>'}
     <div class="acts"><button class="btn" id="alsum">${ic("copy")}Copier le résumé de la semaine</button></div>`);
-  $$("[data-al]", sh).forEach(b => b.onclick = () => { const a = A[+b.dataset.al]; closeModal(); if (a.inbox) openInbox(a.p.id, "pr"); else if (a.usage) openUsageSetup(a.p); else { $("#tabVillage").click(); select(a.p, null); } });
+  $$("[data-al]", sh).forEach(b => b.onclick = () => { const a = A[+b.dataset.al]; closeModal(); if (a.inbox) openInbox(a.p.id, "pr"); else if (a.usage) openUsageChoice(a.p); else { $("#tabVillage").click(); select(a.p, null); } });
   copyTo($("#alsum", sh), weeklySummary());
 }
 function weeklySummary() {
@@ -1202,7 +1266,7 @@ function renderStats() {
     <div class="cards">${REAL().map(projCard).join("")}</div></div>`;
   $$("[data-go]", $("#sv")).forEach(b => b.onclick = () => { $("#tabVillage").click(); select(P.find(p => p.id === b.dataset.go), null); });
   const st = $("#stc"); if (st) st.onclick = openContrib;
-  $$("[data-usage]", $("#sv")).forEach(b => b.onclick = () => openUsageSetup(P.find(p => p.id === b.dataset.usage)));
+  $$("[data-usage]", $("#sv")).forEach(b => b.onclick = () => openUsageChoice(P.find(p => p.id === b.dataset.usage)));
   const aa = $("#alall"); if (aa) aa.onclick = openAlerts;
   $$("[data-inb]", $("#sv")).forEach(b => b.onclick = () => openInbox(b.dataset.inb, "pr"));
 }

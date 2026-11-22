@@ -23,6 +23,10 @@ jobs:
           HUB_TOKEN_CAREWAY: ${{ secrets.HUB_TOKEN_CAREWAY }}
           HUB_PASSWORD: ${{ secrets.HUB_PASSWORD }}   # la page publiée est chiffrée avec ce mot de passe
           HUB_USAGE_KEY: ${{ secrets.HUB_USAGE_KEY }} # clé de lecture des statistiques d'usage (fonction hub_stats)
+          HUB_UPTIMEROBOT_KEY: ${{ secrets.HUB_UPTIMEROBOT_KEY }}     # UptimeRobot : clé API en lecture seule
+          HUB_SENTRY_TOKEN: ${{ secrets.HUB_SENTRY_TOKEN }}           # Sentry : token (org:read, project:read, event:read)
+          HUB_BETTERSTACK_USER: ${{ secrets.HUB_BETTERSTACK_USER }}   # Better Stack : identifiants ClickHouse HTTP (lecture)
+          HUB_BETTERSTACK_PASS: ${{ secrets.HUB_BETTERSTACK_PASS }}
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
   deploy:

@@ -25,6 +25,13 @@ Activité, niveau, liens, conversations avec Claude, statistiques, recherche, no
   3. Créer le secret GitHub `HUB_USAGE_KEY` (la même clé pour tous les sites) et recopier la configuration dans `HUB_PROJECTS`.
   Dans la configuration : `"usage": { "supabase": { "url": "https://xxxx.supabase.co", "anon": "clé publique du site" }, "ignore": ["textes"] }`.
   Une autre API peut fournir le même JSON : `"usage": { "endpoint": { "url": "https://…", "tokenEnv": "HUB_USAGE_TOKEN" } }`.
+- **Autres sources d'usage** (un projet peut en combiner plusieurs, bouton « Connecter l'usage » puis « Sentry, Better Stack, UptimeRobot ») :
+  | Outil | Ce que le hub affiche | Configuration | Secrets GitHub |
+  |---|---|---|---|
+  | UptimeRobot | disponibilité 7 et 30 jours, temps de réponse, fréquence des contrôles, dernière panne | `"uptimerobot": { "monitors": ["nom ou numéro"] }` (facultatif) | `HUB_UPTIMEROBOT_KEY` (clé API en lecture seule) |
+  | Sentry | erreurs par jour, requêtes tracées, problèmes non résolus | `"sentry": { "org": "mon-organisation" }` | `HUB_SENTRY_TOKEN` (droits `org:read`, `project:read`, `event:read`) |
+  | Better Stack | lignes de logs par jour (le vrai trafic) | `"betterstack": { "host": "…betterstackdata.com", "source": "t123456_mon_app" }` | `HUB_BETTERSTACK_USER`, `HUB_BETTERSTACK_PASS` (identifiants ClickHouse HTTP) |
+  Les erreurs, la disponibilité et les pannes alimentent la santé du projet et le panneau « À surveiller ». Ces trois collecteurs suivent les API publiques des outils ; vérifiez leurs droits et leurs noms de source si une lecture échoue (le hub affiche la cause dans la fiche).
 - **Disponibilité** : à chaque mise à jour, chaque site est contrôlé (code HTTP, temps de réponse, expiration du certificat).
 - **Santé** (0 à 100) : activité, tests automatiques, propositions qui traînent, site en ligne, usage. Le détail est dans la fiche.
 - **À surveiller** : tests en échec, site injoignable, certificat proche, propositions de plus de 30 jours, avis demandé, échéances, usage nul.

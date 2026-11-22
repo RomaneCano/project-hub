@@ -110,30 +110,84 @@ function normalizeUsage(raw, ignore = []) {
     users: a ? { total: +a.users || 0, active7: +a.active7 || 0, active30: +a.active30 || 0, newDays: toArr(a.created), seenDays: toArr(a.seen), last: a.last_seen || null } : null,
     last: [...tables.map(t => t.last), a?.last_seen].filter(Boolean).sort().at(-1) || null };
 }
+const fetchT = async (url, opt = {}, ms = 20000) => { const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), ms); try { return await fetch(url, { ...opt, signal: ctrl.signal }); } finally { clearTimeout(to); } };
+async function collectSupabase(u) {
+  const key = process.env.HUB_USAGE_KEY; if (!key) return { ok: false, error: "no-key" };
+  const anon = u.supabase.anon || "";
+  const r = await fetchT(u.supabase.url.replace(/\/$/, "") + "/rest/v1/rpc/hub_stats", { method: "POST", headers: { apikey: anon, Authorization: "Bearer " + anon, "Content-Type": "application/json" }, body: JSON.stringify({ p_key: key }) });
+  return r.ok ? normalizeUsage(await r.json(), u.ignore || []) : { ok: false, error: "http-" + r.status };
+}
+async function collectEndpoint(u) {   // n'importe quelle API qui renvoie le même JSON que hub_stats
+  const tok = process.env[u.endpoint.tokenEnv || "HUB_USAGE_TOKEN"]; if (!tok) return { ok: false, error: "no-key" };
+  const r = await fetchT(u.endpoint.url, { headers: { Authorization: "Bearer " + tok } });
+  return r.ok ? normalizeUsage(await r.json(), u.ignore || []) : { ok: false, error: "http-" + r.status };
+}
+// UptimeRobot : disponibilité, temps de réponse, fréquence des contrôles
+async function collectUptimeRobot(c) {
+  const key = process.env[c.keyEnv || "HUB_UPTIMEROBOT_KEY"]; if (!key) return { ok: false, error: "no-key" };
+  const body = new URLSearchParams({ api_key: key, format: "json", custom_uptime_ratios: "7-30", response_times: "1", response_times_limit: "200", logs: "1", logs_limit: "10" });
+  const r = await fetchT(c.baseUrl || "https://api.uptimerobot.com/v2/getMonitors", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "Cache-Control": "no-cache" }, body });
+  if (!r.ok) return { ok: false, error: "http-" + r.status };
+  const d = await r.json(); if (d.stat !== "ok") return { ok: false, error: "api-" + (d.error?.type || "error") };
+  const want = (c.monitors || []).map(x => String(x).toLowerCase());
+  const monitors = (d.monitors || []).filter(m => !want.length || want.includes(String(m.id)) || want.includes(String(m.friendly_name).toLowerCase())).map(m => {
+    const rt = (m.response_times || []).map(x => +x.value).filter(Number.isFinite), [r7, r30] = String(m.custom_uptime_ratio || "").split("-").map(Number);
+    return { name: m.friendly_name, url: m.url, status: +m.status, interval: +m.interval || null, ratio7: Number.isFinite(r7) ? r7 : null, ratio30: Number.isFinite(r30) ? r30 : null,
+      avgMs: rt.length ? Math.round(rt.reduce((a, b) => a + b, 0) / rt.length) : null, lastDown: (m.logs || []).find(l => +l.type === 1)?.datetime ? new Date(+(m.logs.find(l => +l.type === 1).datetime) * 1000).toISOString() : null };
+  });
+  return { ok: true, monitors };
+}
+// Sentry : erreurs par jour, requêtes tracées, problèmes non résolus
+async function collectSentry(c) {
+  const tok = process.env[c.tokenEnv || "HUB_SENTRY_TOKEN"]; if (!tok) return { ok: false, error: "no-key" };
+  const root = (c.baseUrl || `https://${c.org}.sentry.io`).replace(/\/$/, ""), base = `${root}/api/0/organizations/${encodeURIComponent(c.org)}`, H = { Authorization: "Bearer " + tok };
+  const series = async category => {
+    const q = new URLSearchParams({ field: "sum(quantity)", category, groupBy: "outcome", interval: "1d", statsPeriod: "84d" }); (c.projects || []).forEach(x => q.append("project", String(x)));
+    const r = await fetchT(`${base}/stats_v2/?${q}`, { headers: H }); if (!r.ok) throw new Error("http-" + r.status);
+    const g = ((await r.json()).groups || []).find(x => x.by?.outcome === "accepted"), arr = g?.series?.["sum(quantity)"] || [], out = Array(84).fill(0);
+    arr.slice(-84).forEach((v, i, a) => { out[84 - a.length + i] = +v || 0; }); return out;
+  };
+  try {
+    const [errors, tx] = await Promise.all([series("error"), series("transaction").catch(() => null)]);
+    let unresolved = null; try { const r = await fetchT(`${base}/issues/?query=${encodeURIComponent("is:unresolved")}&limit=1&statsPeriod=14d`, { headers: H }); if (r.ok && r.headers.get("x-hits") != null) unresolved = +r.headers.get("x-hits"); } catch {}
+    return { ok: true, errors, tx, unresolved, url: `https://${c.org}.sentry.io/` };
+  } catch (e) { return { ok: false, error: /^http-/.test(e.message) ? e.message : "fetch" }; }
+}
+// Better Stack : volume de logs par jour (requête SQL ClickHouse), donc le vrai trafic
+async function collectBetterStack(c) {
+  const user = process.env[c.userEnv || "HUB_BETTERSTACK_USER"], pass = process.env[c.passEnv || "HUB_BETTERSTACK_PASS"]; if (!user || !pass) return { ok: false, error: "no-key" };
+  const sql = c.sql || `SELECT toDate(dt) AS d, count() AS c FROM remote(${c.source}_logs) WHERE dt >= now() - INTERVAL 84 DAY GROUP BY d ORDER BY d FORMAT JSONEachRow`;
+  const r = await fetchT(c.url || `https://${c.host}/`, { method: "POST", headers: { Authorization: "Basic " + Buffer.from(user + ":" + pass).toString("base64"), "Content-Type": "text/plain" }, body: sql }, 40000);
+  if (!r.ok) return { ok: false, error: "http-" + r.status };
+  const days = {}; (await r.text()).split("\n").filter(Boolean).forEach(l => { try { const o = JSON.parse(l); days[o.d] = +o.c || 0; } catch {} });
+  return { ok: true, perDay: toArr(days) };
+}
 async function collectUsage(p) {
   const u = p.usage; if (!u) return null;
-  try {
-    let r;
-    if (u.supabase?.url) {
-      const key = process.env.HUB_USAGE_KEY; if (!key) return { ok: false, error: "no-key" };
-      const anon = u.supabase.anon || "";
-      r = await fetch(u.supabase.url.replace(/\/$/, "") + "/rest/v1/rpc/hub_stats", { method: "POST", headers: { apikey: anon, Authorization: "Bearer " + anon, "Content-Type": "application/json" }, body: JSON.stringify({ p_key: key }) });
-    } else if (u.endpoint?.url) {   // n'importe quelle API qui renvoie le même JSON que hub_stats
-      const tok = process.env[u.endpoint.tokenEnv || "HUB_USAGE_TOKEN"]; if (!tok) return { ok: false, error: "no-key" };
-      r = await fetch(u.endpoint.url, { headers: { Authorization: "Bearer " + tok } });
-    } else return null;
-    if (!r.ok) return { ok: false, error: "http-" + r.status };
-    return normalizeUsage(await r.json(), u.ignore || []);
-  } catch { return { ok: false, error: "fetch" }; }
+  const jobs = [];
+  if (u.supabase?.url) jobs.push(["supabase", collectSupabase(u)]);
+  if (u.endpoint?.url) jobs.push(["endpoint", collectEndpoint(u)]);
+  if (u.uptimerobot) jobs.push(["uptimerobot", collectUptimeRobot(u.uptimerobot)]);
+  if (u.sentry?.org) jobs.push(["sentry", collectSentry(u.sentry)]);
+  if (u.betterstack && (u.betterstack.source || u.betterstack.url)) jobs.push(["betterstack", collectBetterStack(u.betterstack)]);
+  if (!jobs.length) return null;
+  const res = await Promise.all(jobs.map(([k, pr]) => pr.then(v => [k, v], () => [k, { ok: false, error: "fetch" }])));
+  const sources = {}, errors = {}; res.forEach(([k, v]) => { if (v?.ok) sources[k] = v; else errors[k] = v?.error || "fetch"; });
+  if (!Object.keys(sources).length) return { ok: false, error: Object.values(errors)[0], errors };
+  const base = sources.supabase || sources.endpoint || null;
+  // activité affichée : logs (vrai trafic) > requêtes tracées Sentry > lignes ajoutées en base
+  const bs = sources.betterstack?.perDay, tx = sources.sentry?.tx, events = bs || (tx && tx.some(Boolean) ? tx : null) || base?.events || Array(84).fill(0);
+  const eventsLabel = bs ? "lignes de logs" : (tx && tx.some(Boolean) && !base) ? "requêtes tracées" : base ? "données saisies" : "événements";
+  return { ok: true, at: new Date().toISOString(), sources, errors, events, eventsLabel, hasEvents: !!(bs || (tx && tx.some(Boolean)) || base), tables: base?.tables || [], dbBytes: base?.dbBytes || 0, users: base?.users || null,
+    last: [base?.last, ...(events.some(Boolean) && (bs || tx) ? [new Date().toISOString()] : [])].filter(Boolean).sort().at(-1) || null };
 }
 
-// ---- disponibilité des sites ----
+// ---- disponibilité des sites : code HTTP, temps de réponse, expiration du certificat ----
 async function checkSite(url) {
   const t0 = Date.now(), out = { url, ok: false, status: 0, ms: 0, certDays: null };
   try {
-    const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), 10000);
-    const r = await fetch(url, { signal: ctrl.signal, redirect: "follow", headers: { "User-Agent": "projects-hub-monitor" } });
-    clearTimeout(to); out.status = r.status; out.ms = Date.now() - t0; out.ok = r.status < 400; await r.body?.cancel?.();
+    const r = await fetchT(url, { redirect: "follow", headers: { "User-Agent": "projects-hub-monitor" } }, 10000);
+    out.status = r.status; out.ms = Date.now() - t0; out.ok = r.status < 400; await r.body?.cancel?.();
   } catch { out.ms = Date.now() - t0; }
   try {
     const u = new URL(url);
