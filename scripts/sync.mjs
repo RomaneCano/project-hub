@@ -249,7 +249,7 @@ for (const o of owners) {
     catalog.push({ full: r.full_name, desc: (r.description || "").slice(0, 100), pushed: r.pushed_at, private: r.private, language: r.language, archived: !!r.archived, assigned: assigned.has(r.full_name.toLowerCase()) }); });
 }
 console.log(`catalogue : ${catalog.length} dépôts proposés`);
-const data = { generated: new Date().toISOString(), weeks: WEEKS, me, team: cfg.team || [], hub: cfg.hub || {}, catalog, projects: out };
+const data = { generated: new Date().toISOString(), build: (process.env.GITHUB_SHA || "").slice(0, 7) || "local", weeks: WEEKS, me, team: cfg.team || [], hub: cfg.hub || {}, catalog, projects: out };
 writeFileSync(prevPath, JSON.stringify(data, null, 2));
 
 mkdirSync(join(root, "dist"), { recursive: true });
