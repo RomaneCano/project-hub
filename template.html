@@ -232,6 +232,9 @@ code{font:12px ui-monospace,monospace;background:var(--bg2);border-radius:5px;pa
 #vdots:empty{display:none}
 .vd{width:13px;height:13px;border-radius:50%;border:2px solid #fff;background:var(--c);opacity:.55;cursor:pointer;padding:0}.vd.on{opacity:1;transform:scale(1.25)}
 @media(max-width:600px){.navb{width:34px;height:52px}}
+.tile{border-top:3px solid var(--tc,var(--violet))}
+.tiles .tile:nth-child(5n+1){--tc:var(--violet)}.tiles .tile:nth-child(5n+2){--tc:var(--mint)}.tiles .tile:nth-child(5n+3){--tc:var(--gold)}.tiles .tile:nth-child(5n+4){--tc:var(--coral)}.tiles .tile:nth-child(5n){--tc:#4aa8ff}
+.kpis .kpi:nth-child(7n+4)::before{background:var(--coral)}.kpis .kpi:nth-child(7n+6)::before{background:#4aa8ff}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 <div id="app">

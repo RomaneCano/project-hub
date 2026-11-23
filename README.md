@@ -39,6 +39,9 @@ Activité, niveau, liens, conversations avec Claude, statistiques, recherche, no
 - **Mes tâches** par projet, **nouveautés depuis la dernière visite**, **résumé de la semaine** à copier, **sauvegarde des réglages** de l'appareil (menu « Modifier le hub »).
 - **Modifier le hub** : lien vers la conversation Claude dédiée (`"hub": { "claude": "https://claude.ai/code/session_…" }`) et raccourcis vers le code, la mise à jour et les secrets.
 
+## Couleurs et saisons
+Les couleurs du village suivent la saison (selon la date, ou forcée avec le bouton 🍂) : printemps rose et fleuri, été vert, automne orange avec des feuilles qui tombent, hiver enneigé. Ciel à quatre teintes, trois plans de collines, six couleurs de fleurs. Chaque maison a sa propre porte, ses volets, ses jardinières et sa boîte aux lettres, et une guirlande quand le projet a été modifié cette semaine.
+
 ## Éléments du village qui reflètent une donnée
 Arc-en-ciel (tests au vert), camion (pipeline réussi < 24 h), ballon (version publiée < 3 j), étoile filante (activité < 1 h), volets fermés et toiles (rien depuis 30 j), cheminée et drapeau qui s'agitent avec l'activité, pluie (tests en échec), lettres qui débordent (10 propositions ou plus), personnages bleus (utilisateurs). Chaque élément explique sa signification au survol.
 Le bouton « Me balader » permet de marcher dans le village (flèches ou ZQSD, clic au sol, Entrée pour interagir). Quelques surprises sont cachées : les trophées (🏆) les listent.

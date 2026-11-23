@@ -132,6 +132,7 @@ function prep(p) {
   p.ciFail = p.repos.filter(r => r.ci?.status === "failure").length;
   p.days = Array.from({ length: 84 }, (_, i) => p.repos.reduce((s, r) => s + ((r.days && r.days[i]) || 0), 0));
   p.authors = mergeAuthors(p.repos.flatMap(r => r.authors || [])).map(a => ({ ...a, kind: kindOf(a, p) }));
+  p.door = hsl2hex((h[0] + 170) % 360, .5, .32); p.shut = hsl2hex((h[0] + 200) % 360, .6, .5); p.mail = hsl2hex((h[0] + 120) % 360, .65, .55); p.lampc = ["#ffe58a", "#ffb5d6", "#b8f0ff", "#d6ffb0"][hashStr(p.id) % 4];
   p.exts = p.authors.filter(a => a.kind === "ext");
   p.ud = p.usageData?.ok ? p.usageData : null;
   p.rel = p.repos.map(r => r.release).filter(Boolean).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
@@ -177,12 +178,36 @@ const parseRepos = txt => {   // accepte liens, « owner/nom », commandes git c
 const PHASES = ["auto", "dawn", "day", "dusk", "night"], PHN = { auto: "Auto (selon l'heure)", dawn: "Aube", day: "Jour", dusk: "Crépuscule", night: "Nuit" };
 let PHASE = lsGet("rph.phase", "auto"); if (!PHASES.includes(PHASE)) PHASE = "auto";
 const curPhase = () => { if (PHASE !== "auto") return PHASE; const h = new Date().getHours(); return h >= 6 && h < 9 ? "dawn" : h >= 9 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night"; };
+/* ---------- saisons : les couleurs du village suivent la date ---------- */
+const SEASONS = ["auto", "spring", "summer", "autumn", "winter"], SEAN = { auto: "Auto (selon la date)", spring: "Printemps", summer: "Été", autumn: "Automne", winter: "Hiver" }, SEAI = { spring: "🌸", summer: "☀️", autumn: "🍂", winter: "❄️" };
+let SEASON = lsGet("rph.season", "auto"); if (!SEASONS.includes(SEASON)) SEASON = "auto";
+const curSeason = () => { if (SEASON !== "auto") return SEASON; const d = new Date(), v = (d.getMonth() + 1) * 100 + d.getDate(); return v >= 321 && v < 621 ? "spring" : v >= 621 && v < 923 ? "summer" : v >= 923 && v < 1221 ? "autumn" : "winter"; };
+function seasonBtn() { const b = $("#btnSeason"); if (!b) return; b.textContent = SEAI[curSeason()]; b.title = b.ariaLabel = "Saison du village : " + SEAN[SEASON === "auto" ? curSeason() : SEASON] + (SEASON === "auto" ? " (selon la date)" : ""); }
 const PAL = {
-  day: { sky: ["#3f9bff", "#8fd3ff", "#d9f3ff"], hill: ["#6cc58a", "#57b273"], grass: "#5ec45c", tuft: "#49a94b", flower: ["#ff7aa8", "#ffd34a", "#fff"], tree: ["#2f9e57", "#42b86b", "#237a45"], trunk: "#6b4a2b", path: "#e8d4a0", water: "#58b8ff", cloud: "#ffffff", glass: "#7fb2d9", lit: false },
-  dawn: { sky: ["#6f64d1", "#ff9fb6", "#ffe0b0"], hill: ["#78b38d", "#66a07b"], grass: "#69b55f", tuft: "#52a050", flower: ["#ff8fb0", "#ffd34a", "#fff"], tree: ["#2c8f55", "#3ba865", "#216f42"], trunk: "#6b4a2b", path: "#e6caa0", water: "#79b9e8", cloud: "#ffd6e0", glass: "#f3b9b0", lit: false },
-  dusk: { sky: ["#34286f", "#b4579b", "#ff9f6b"], hill: ["#3d6a78", "#335c68"], grass: "#3d8c5a", tuft: "#2f7649", flower: ["#ff8fb0", "#ffd34a", "#e8d8ff"], tree: ["#216b48", "#2a8156", "#185238"], trunk: "#4d3822", path: "#c2a77d", water: "#5a86c9", cloud: "#e59ab8", glass: "#ffcf7a", lit: true },
-  night: { sky: ["#070a24", "#131b4f", "#27377d"], hill: ["#16355f", "#112d4f"], grass: "#1b5a44", tuft: "#144a38", flower: ["#a96bd1", "#d9b84a", "#cfd8ff"], tree: ["#18603f", "#1f7149", "#124a31"], trunk: "#3a2a1c", path: "#82745a", water: "#2d68ab", cloud: "#34437f", glass: "#ffe58a", lit: true, stars: true },
+  day: { sky: ["#2f86f0", "#5cb6ff", "#a6e3ff", "#eafcff"], hill: ["#6cc58a", "#57b273", "#9ad3c2"], grass: "#5ec45c", tuft: "#49a94b", trunk: "#6b4a2b", path: "#e8d4a0", water: "#58b8ff", cloud: "#ffffff", glass: "#7fb2d9", lit: false, dark: 0 },
+  dawn: { sky: ["#5b4fc4", "#c46fd0", "#ff9fb6", "#ffd9a8"], hill: ["#78b38d", "#66a07b", "#b9a4d9"], grass: "#69b55f", tuft: "#52a050", trunk: "#6b4a2b", path: "#e6caa0", water: "#79b9e8", cloud: "#ffd6e0", glass: "#f3b9b0", lit: false, dark: .06 },
+  dusk: { sky: ["#2a1f66", "#8f3f9e", "#e0587f", "#ffa36b"], hill: ["#3d6a78", "#335c68", "#6a4f9a"], grass: "#3d8c5a", tuft: "#2f7649", trunk: "#4d3822", path: "#c2a77d", water: "#5a86c9", cloud: "#e59ab8", glass: "#ffcf7a", lit: true, dark: .3 },
+  night: { sky: ["#050722", "#0f1a52", "#25358a", "#4a4aa0"], hill: ["#16355f", "#112d4f", "#1b2a6a"], grass: "#1b5a44", tuft: "#144a38", trunk: "#3a2a1c", path: "#82745a", water: "#2d68ab", cloud: "#34437f", glass: "#ffe58a", lit: true, stars: true, dark: .5 },
 };
+const TREEC = { green: ["#42b86b", "#2f9e57", "#237a45"], lime: ["#8fd45a", "#6bbf3f", "#4a9a2c"], pine: ["#2d8a5a", "#1f7049", "#155538"], cherry: ["#ffc2dc", "#ff8fbf", "#d95f9a"], orange: ["#ffb347", "#f08a24", "#c1581a"], red: ["#ff7a6b", "#d9473a", "#a62f29"], yellow: ["#ffe066", "#f2c230", "#c99a1b"], snowpine: ["#3d8a68", "#2a6f50", "#1c523b"], bare: ["#6b4a2b", "#6b4a2b", "#4a321c"] };
+const SEAS = {
+  spring: { grass: ["#9be66f", .3], hill: ["#8fe0a8", .3], flower: ["#ff7aa8", "#ffe066", "#ffffff", "#c084fc", "#ff9f6b", "#7ab8ff"], trees: ["green", "cherry", "lime", "pine"], kinds: ["round", "round", "round", "pine"], amb: "petal" },
+  summer: { grass: null, hill: null, flower: ["#ff7aa8", "#ffd34a", "#ffffff", "#b57bff", "#ff7a45", "#5cb6ff"], trees: ["green", "lime", "green", "pine"], kinds: ["round", "round", "round", "pine"], amb: null },
+  autumn: { grass: ["#c9b04a", .45], hill: ["#d49a45", .45], flower: ["#ff9f43", "#ffd34a", "#e0562a", "#e8c07a", "#b5651d", "#ffb7a0"], trees: ["orange", "red", "yellow", "pine"], kinds: ["round", "round", "round", "pine"], amb: "leaf" },
+  winter: { grass: ["#f2f7fb", .75], hill: ["#e6eef6", .6], flower: ["#ffffff", "#bfe3ff", "#e8d8ff", "#ffe9a8", "#ffd6e0", "#cfe9ff"], trees: ["snowpine", "bare", "snowpine", "snowpine"], kinds: ["pine", "bare", "pine", "pine"], snow: true, amb: "snow" },
+};
+const toRGB = c => c[0] === "#" ? [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)] : c.match(/\d+/g).slice(0, 3).map(Number);
+const mix = (a, b, t) => { const A = toRGB(a), B = toRGB(b); return `rgb(${[0, 1, 2].map(i => Math.round(A[i] * (1 - t) + B[i] * t)).join(",")})`; };
+const dk = (c, d) => d ? mix(c, "#000000", d) : c;
+const PALC = {};
+function palFor(ph) {
+  const sea = curSeason(), key = ph + sea; if (PALC[key]) return PALC[key];
+  const pal = PAL[ph], S = SEAS[sea], d = pal.dark, tint = (c, t, k = 1) => t ? mix(c, dk(t[0], d), Math.min(1, t[1] * k)) : c, out = { ...pal };
+  out.grass = tint(pal.grass, S.grass); out.tuft = tint(pal.tuft, S.grass, .8); out.hill = pal.hill.map((c, i) => tint(c, S.hill, i === 2 ? .7 : 1));
+  out.flower = S.flower.map(c => dk(c, d * .5)); out.path = sea === "winter" ? mix(pal.path, "#ffffff", .3) : pal.path; out.water = sea === "winter" ? mix(pal.water, "#cfe9ff", .55) : pal.water;
+  out.tv = S.trees.map(n => TREEC[n].map(c => dk(c, d))); out.tk = S.kinds; out.snow = !!S.snow; out.amb = S.amb || null; out.season = sea;
+  return PALC[key] = out;
+}
 
 /* ---------- barre du haut ---------- */
 $("#brand").innerHTML = `${LOGO}<span class="bt"><b>Romy's</b><i>Projects Hub</i></span>`;
@@ -196,13 +221,14 @@ $("#tools").innerHTML = `
   <button class="tb" id="btnAdd">${ic("plus")}<span>Projet</span></button>
   <button class="tb ico" id="btnSearch" aria-label="Rechercher (Ctrl+K)" title="Rechercher (Ctrl+K)">${ic("search")}</button>
   <button class="tb ico" id="btnPhase"></button>
+  <button class="tb ico" id="btnSeason"></button>
   <button class="tb ico" id="btnTheme" aria-label="Thème de l'interface" title="Thème de l'interface">${ic("palette")}</button>
   <button class="tb" id="btnHub" title="Modifier ce hub avec Claude">${ic("spark")}<span>Modifier le hub</span></button>
   <button class="tb ico" id="btnHelp" aria-label="Aide et tutoriel" title="Aide et tutoriel">${ic("help")}</button>
   <button class="tb ico" id="btnOut" aria-label="Se déconnecter" title="Se déconnecter de cet appareil">${ic("out")}</button>`;
 $("#per").innerHTML = `<span class="pl">Période</span>` + [[7, "7 j"], [30, "30 j"], [84, "12 sem."]].map(([n, l]) => `<button data-p="${n}" aria-pressed="${n === PERIOD}" title="Statistiques sur ${PLABEL[n]}">${l}</button>`).join("");
 function phaseBtn() { const b = $("#btnPhase"); b.innerHTML = ic(PHICON[PHASE === "auto" ? curPhase() : PHASE]); b.title = b.ariaLabel = "Ambiance du village : " + PHN[PHASE]; }
-phaseBtn();
+phaseBtn(); seasonBtn();
 $("#helpfab").innerHTML = `<button class="tb" id="btnGuide">${ic("help")}<span>Comment lire le village ?</span></button><button class="tb" id="btnWalk" aria-pressed="false" title="Marcher dans le village">🚶<span>Me balader</span></button><button class="tb ico" id="btnEggs" title="Trophées cachés" aria-label="Trophées cachés">🏆</button>`;
 
 /* ---------- HUD ---------- */
@@ -228,6 +254,7 @@ let SEL = null;
 const R = (x, y, w, h, c) => { G.fillStyle = c; G.fillRect(Math.round(x), Math.round(y), w, h); };
 const FAKEREPO = { name: "chantier", ci: null, sessions: [], pushed: new Date().toISOString(), full: "chantier" };
 
+const HAIR = ["#2b1d12", "#6b3f1d", "#d6a73a", "#c8431f", "#222", "#8b8b8b", "#ff7ab6", "#4aa8ff", "#9b5de5", "#2fbf8f"], ACC = ["#ffc857", "#ff7a9c", "#46e6a8", "#4aa8ff", "#b57bff", "#ff9f43"];
 function layout() {
   const W = stage.clientWidth, H = stage.clientHeight, n = P.length;
   const kk = W < 560 ? 2 : (W > 1700 && H > 1000 ? 4 : 3), vis = W < 560 ? 1 : W < 1000 ? 2 : 3, hzMin = Math.ceil(44 + 116 / kk);
@@ -238,8 +265,8 @@ function layout() {
     const rnd = mulberry(hashStr(p.id + "x")), hw = 40 + Math.min(p.repos.length || 3, 13) * 2, cx = Math.round(PW / 2), hy = hz + 14;
     const trees = [], tufts = [];
     const nT = Math.max(3, Math.round(PW * (PH - hz) / 2600));
-    for (let j = 0, g = 0; j < nT && g < 90; g++) { const x = 8 + rnd() * (PW - 16), y = hz + 26 + rnd() * (PH - hz - 34); if (Math.abs(x - cx) < hw / 2 + 16 && y < hy + 36) continue; if (Math.abs(x - cx) < 9) continue; trees.push({ x: Math.round(x), y: Math.round(y), s: rnd() < .3 ? 1 : 0 }); j++; }
-    for (let j = 0; j < Math.round(PW * (PH - hz) / 150); j++) tufts.push({ x: rnd() * PW, y: hz + 4 + rnd() * (PH - hz - 6), f: rnd() < .12 ? Math.floor(rnd() * 3) : -1 });
+    for (let j = 0, g = 0; j < nT && g < 90; g++) { const x = 8 + rnd() * (PW - 16), y = hz + 26 + rnd() * (PH - hz - 34); if (Math.abs(x - cx) < hw / 2 + 16 && y < hy + 36) continue; if (Math.abs(x - cx) < 9) continue; trees.push({ x: Math.round(x), y: Math.round(y), s: rnd() < .3 ? 1 : 0, v: Math.floor(rnd() * 4) }); j++; }
+    for (let j = 0; j < Math.round(PW * (PH - hz) / 150); j++) tufts.push({ x: rnd() * PW, y: hz + 4 + rnd() * (PH - hz - 6), f: rnd() < .22 ? Math.floor(rnd() * 6) : -1 });
     let pond = null; if (rnd() < .65) { const sx = rnd() < .5 ? -1 : 1; pond = { x: Math.max(26, Math.min(PW - 26, Math.round(cx + sx * (hw / 2 + 34 + rnd() * 8)))), y: Math.round(hy + 46 + rnd() * 18) }; }
     return { p, i, ox: (i % cols) * PW, oy: Math.floor(i / cols) * PH, hw, cx, hx: cx - Math.round(hw / 2), hy, trees, tufts, pond, born: i * 10, flies: Array.from({ length: 7 }, () => ({ x: rnd() * PW, y: hy + rnd() * (PH - hy), p: rnd() * 6 })) };
   });
@@ -249,7 +276,7 @@ function layout() {
     list.forEach((r, ri) => {
       const rnd = mulberry(hashStr(r.full || r.name)), age = ageDays(r.pushed);
       chars.push({ p, pi, r, rnd, mode: age < 2 ? "work" : age < 14 ? "stroll" : "sleep", x: 14 + rnd() * (PW - 28), y: hy0() + rnd() * (PH - hy0() - 10), tx: 14 + rnd() * (PW - 28), ty: hy0() + rnd() * (PH - hy0() - 10),
-        skin: ["#f5c9a0", "#e0a97a", "#b9784a", "#8a5a3a"][Math.floor(rnd() * 4)], hair: ["#2b1d12", "#6b3f1d", "#d6a73a", "#c8431f", "#222", "#8b8b8b"][Math.floor(rnd() * 6)],
+        skin: ["#f5c9a0", "#e0a97a", "#b9784a", "#8a5a3a"][Math.floor(rnd() * 4)], hair: HAIR[Math.floor(rnd() * HAIR.length)],
         tone: [-0.2, 0.15, 0, 0.3][ri % 4], pause: rnd() * 30, f: Math.floor(rnd() * 20), dir: 1, moving: false, hop: 0 });
     });
     (p.exts || []).slice(0, 3).forEach(a => {
@@ -288,24 +315,35 @@ function buildPlates() {
 }
 
 /* --- dessin --- */
+const AMBC = { leaf: ["#ff9f43", "#e0562a", "#ffd34a", "#c1581a"], petal: ["#ffb7d5", "#ffffff", "#ff8fbf"], snow: ["#ffffff", "#e8f4ff"] };
+function drawAmb(pal) {   // feuilles, pétales ou neige selon la saison
+  if (!pal.amb) return; const a = pal.amb, n = Math.round(LW / 6), cols = AMBC[a], sp = a === "snow" ? .35 : a === "petal" ? .3 : .45; ctx.globalAlpha = .85;
+  for (let i = 0; i < n; i++) { const x = (i * 97.3 + Math.sin(T / 28 + i) * (a === "snow" ? 4 : 10) + LW) % LW, y = (T * sp + i * 53.7) % LH; R(x, y, a === "snow" ? 1 : 2, a === "snow" ? 1 : 2, cols[i % cols.length]); }
+  ctx.globalAlpha = 1;
+}
 function band(r, pal, ph) {
   const oy = r * PH;
-  for (let y = 0; y < hz; y += 4) { const f = y / hz; R(0, oy + y, LW, 4, f < .5 ? lerp(pal.sky[0], pal.sky[1], f * 2) : lerp(pal.sky[1], pal.sky[2], (f - .5) * 2)); }
+  for (let y = 0; y < hz; y += 4) { const f = y / hz, n = pal.sky.length - 1, q = Math.min(n - 1, Math.floor(f * n)); R(0, oy + y, LW, 4, lerp(pal.sky[q], pal.sky[q + 1], f * n - q)); }
   if (pal.stars) for (let i = 0; i < LW / 5; i++) { const x = (i * 97 + r * 31) % LW, y = (i * 53 + r * 17) % (hz - 24); if ((Math.floor(T / 6) + i) % 9) R(x, oy + y, 1, 1, "#fff"); }
   const sx = ph === "night" ? LW * .84 : ph === "dawn" ? LW * .14 : ph === "dusk" ? LW * .86 : LW * .8, sy = ph === "day" ? 16 : ph === "night" ? 14 : hz - 30;
   DYN.push({ x: sx + 6, y: oy + sy + 6, r: 10, tipHtml: hotTip(ph === "night" ? "🌙 Lune" : "☀️ Soleil", `l'heure du village suit celle de votre appareil (ambiance : ${PHN[PHASE]}). Cliquez pour dire bonjour et changer d'ambiance.`), act: m => { egg("sun", "☀️ Coucou !", m); PHASE = PHASES[(PHASES.indexOf(PHASE) + 1) % PHASES.length]; lsSet("rph.phase", PHASE); phaseBtn(); } });
   if (ph === "night") { R(sx, oy + sy, 12, 12, "#fdf3c4"); R(sx + 4, oy + sy, 8, 12, pal.sky[1]); } else { R(sx - 2, oy + sy - 2, 16, 16, ph === "day" ? "rgba(255,230,120,.3)" : "rgba(255,150,100,.35)"); R(sx, oy + sy, 12, 12, ph === "day" ? "#ffe27a" : "#ff9a52"); }
   for (let i = 0; i < Math.max(2, Math.round(LW / 130)); i++) { const x = ((T * .1 + i * 140 + r * 40) % (LW + 60)) - 30, y = oy + 12 + (i * 17) % 30; ctx.globalAlpha = pal.lit && ph === "night" ? .5 : .92; R(x, y, 24, 5, pal.cloud); R(x + 4, y - 3, 14, 4, pal.cloud); ctx.globalAlpha = 1; }
   if (ph === "day" || ph === "dawn") for (let i = 0; i < 3; i++) { const x = ((T * .35 + i * 90 + r * 20) % (LW + 30)) - 15, y = oy + 16 + i * 9 + Math.sin(T / 9 + i) * 2, fl = Math.floor(T / 5) % 2; R(x, y, 2, 1, "#2a2f45"); R(x + 2, y + (fl ? -1 : 1), 2, 1, "#2a2f45"); R(x + 4, y, 2, 1, "#2a2f45"); DYN.push({ x: x + 3, y, r: 6, tipHtml: hotTip("Oiseau", "il survole le village. Qui sait ce qu'il pense ?"), act: m => { spawn("feather", x + 3, y, 6); egg("bird", "🐦 Piou !", m); } }); }
+  for (let x = 0; x < LW; x += 2) { const c = 19 + 8 * Math.sin(x / 41 + r * 2) + 3 * Math.sin(x / 13); R(x, oy + hz - c, 2, c + 2, pal.hill[2]); }
   for (let x = 0; x < LW; x += 2) { const a = 11 + 6 * Math.sin(x / 23 + r) + 4 * Math.sin(x / 9); R(x, oy + hz - a, 2, a + 2, pal.hill[0]); const b = 5 + 4 * Math.sin(x / 15 + 2 + r); R(x, oy + hz - b, 2, b + 1, pal.hill[1]); }
   R(0, oy + hz, LW, PH - hz, pal.grass); R(0, oy + PH - 1, LW, 1, "rgba(0,0,0,.18)");
 }
-function tree(x, y, s, pal) {
-  R(x - 1, y - 6, 3, 6, pal.trunk); R(x - 4, y + 0, 9, 2, "rgba(0,0,0,.2)");
+function tree(x, y, s, pal, v = 0) {
+  const q = v % 4, [c1, c2, c3] = pal.tv[q], kind = pal.tk[q];
+  R(x - 4, y, 9, 2, "rgba(0,0,0,.2)"); R(x - 1, y - 6, 3, 6, pal.trunk);
+  if (kind === "pine") { [[-26, 2], [-23, 4], [-20, 6], [-17, 8], [-14, 10], [-11, 12], [-8, 8]].forEach(([dy, w], j) => { R(x - w / 2, y + dy, w, 3, j % 2 ? c2 : c1); R(x + w / 2 - 2, y + dy, 2, 3, c3); if (pal.snow) R(x - w / 2, y + dy, w, 1, "#fff"); }); return; }
+  if (kind === "bare") { R(x - 1, y - 16, 3, 10, pal.trunk); [[-7, -14, 4], [3, -15, 4], [-4, -19, 3], [2, -19, 3]].forEach(([dx, dy, w]) => R(x + dx, y + dy, w, 1, pal.trunk)); if (pal.snow) { R(x - 8, y - 15, 4, 1, "#fff"); R(x + 3, y - 16, 4, 1, "#fff"); R(x - 4, y - 20, 3, 1, "#fff"); } return; }
   const rows = s ? [[-18, 8], [-15, 12], [-12, 14], [-9, 12], [-6, 8]] : [[-15, 6], [-12, 10], [-9, 12], [-6, 8]];
-  rows.forEach(([dy, w], i) => { R(x - w / 2, y + dy, w, 3, pal.tree[i % 3 === 0 ? 1 : 0]); R(x - w / 2, y + dy, 2, 3, pal.tree[1]); R(x + w / 2 - 2, y + dy, 2, 3, pal.tree[2]); });
+  rows.forEach(([dy, w], i) => { R(x - w / 2, y + dy, w, 3, i % 3 === 0 ? c1 : c2); R(x - w / 2, y + dy, 2, 3, c1); R(x + w / 2 - 2, y + dy, 2, 3, c3); });
+  if (pal.snow) R(x - rows[0][1] / 2, y + rows[0][0], rows[0][1], 1, "#fff");
 }
-function lamp(x, y, lit) { R(x, y - 14, 1, 14, "#2b2b3a"); R(x - 2, y - 17, 5, 3, "#2b2b3a"); R(x - 1, y - 16, 3, 2, lit ? "#ffe58a" : "#9aa"); if (lit) { ctx.globalAlpha = .18; R(x - 9, y - 24, 19, 20, "#ffe58a"); ctx.globalAlpha = 1; } }
+function lamp(x, y, lit, lc = "#ffe58a") { R(x, y - 14, 1, 14, "#2b2b3a"); R(x - 2, y - 17, 5, 3, "#2b2b3a"); R(x - 1, y - 16, 3, 2, lit ? lc : "#9aa"); if (lit) { ctx.globalAlpha = .18; R(x - 9, y - 24, 19, 20, lc); ctx.globalAlpha = 1; } }
 function drawHouse(pl, pal, ph) {
   const p = pl.p, { hw, cx, hx, hy, ox, oy } = pl, X = x => ox + x, Y = y => oy + y;
   const f = Math.max(0, Math.min(1, (T - pl.born) / 36)), age = ageDays(p.pushed), busy = age < 2, lit = pal.lit || busy;
@@ -317,8 +355,15 @@ function drawHouse(pl, pal, ph) {
   R(X(hx), Y(hy - 38), hw, 38, p.col); R(X(hx + hw - 5), Y(hy - 38), 5, 38, shade(p.col, -.24)); R(X(hx), Y(hy - 38), hw, 2, shade(p.col, .28)); R(X(hx), Y(hy - 3), hw, 3, shade(p.col, -.32));
   for (let j = 0; j < 16; j++) { const half = Math.round((j + 1) / 16 * (hw / 2 + 5)); R(X(cx - half), Y(hy - 54 + j), half * 2, 1, j % 4 === 3 ? shade(p.roof, -.2) : p.roof); R(X(cx - half), Y(hy - 54 + j), 1, 1, shade(p.roof, .25)); }
   drawEmblem(p, X(cx - 7), Y(hy - 51));
-  R(X(cx - 5), Y(hy - 17), 10, 17, "#5a3a22"); R(X(cx - 4), Y(hy - 18), 8, 1, "#5a3a22"); R(X(cx + 2), Y(hy - 9), 1, 1, "#ffd34a"); R(X(cx - 7), Y(hy - 1), 14, 2, "#9a8a6a");
+  R(X(cx - 5), Y(hy - 17), 10, 17, p.door); R(X(cx - 4), Y(hy - 18), 8, 1, p.door); R(X(cx - 3), Y(hy - 14), 6, 5, shade(p.door, .18)); R(X(cx + 2), Y(hy - 9), 1, 1, "#ffd34a"); R(X(cx - 7), Y(hy - 1), 14, 2, "#9a8a6a");
   [hx + 6, hx + hw - 16].forEach(wx => { R(X(wx), Y(hy - 30), 10, 9, "#3a2c20"); R(X(wx + 1), Y(hy - 29), 8, 7, lit ? "#ffe58a" : pal.glass); R(X(wx + 4), Y(hy - 29), 1, 7, "#3a2c20"); if (lit && pal.lit) { ctx.globalAlpha = .16; R(X(wx - 3), Y(hy - 33), 16, 15, "#ffe58a"); ctx.globalAlpha = 1; } });
+  [hx + 6, hx + hw - 16].forEach((wx, wi) => {   // volets colorés et jardinières fleuries
+    R(X(wx - 2), Y(hy - 30), 2, 9, p.shut); R(X(wx + 10), Y(hy - 30), 2, 9, p.shut);
+    R(X(wx - 1), Y(hy - 21), 12, 2, shade(p.door, -.1)); for (let j = 0; j < 4; j++) R(X(wx) + j * 3, Y(hy - 23), 2, 2, pal.flower[(hashStr(p.id) + j + wi * 2) % 6]);
+  });
+  if (age < 7) {   // guirlande : projet actif cette semaine
+    for (let j = 0; j <= 12; j++) { const gx = hx - 1 + j * ((hw + 2) / 12), gy = hy - 37 + Math.sin(j / 12 * Math.PI) * 5 + Math.sin(T / 9 + j) * .6; R(X(gx), Y(gy), 1, 1, "#e8e0f0"); R(X(gx) - 1, Y(gy) + 1, 3, 2, RAINBOW[j % 6]); R(X(gx), Y(gy) + 3, 1, 1, RAINBOW[j % 6]); }
+  }
   ctx.restore();
   if (ageDays(p.pushed) > 30) {   // projet endormi : volets fermés et toiles d'araignée
     [hx + 6, hx + hw - 16].forEach(wx => { R(X(wx), Y(hy - 30), 10, 9, "#5a3a22"); for (let j = 0; j < 3; j++) R(X(wx), Y(hy - 29 + j * 3), 10, 1, "#3a2c20"); });
@@ -328,7 +373,7 @@ function drawHouse(pl, pal, ph) {
   const fc = { active: "#2fd37a", recent: "#f0a823", dormant: "#8d8ab8", paused: "#8d8ab8" }[p.status] || "#8d8ab8", wv = Math.round(Math.sin(T * .2 * (1 + Math.min(3, sum(p.days, 7) / 60))));
   R(X(hx - 14), Y(hy - 32), 2, 32, "#6b5a45"); R(X(hx - 12), Y(hy - 31), 12, 7, fc); R(X(hx) - 0 + wv - 2, Y(hy - 30), 2, 5, fc);
   // boîte aux lettres (PR) et colis (issues)
-  const mx = X(hx - 24), my = Y(hy + 14); R(mx, my - 8, 2, 8, "#6b5a45"); R(mx - 3, my - 13, 8, 5, "#4a6cf7"); R(mx - 3, my - 13, 8, 1, "#7d96ff");
+  const mx = X(hx - 24), my = Y(hy + 14); R(mx, my - 8, 2, 8, "#6b5a45"); R(mx - 3, my - 13, 8, 5, p.mail); R(mx - 3, my - 13, 8, 1, shade(p.mail, .35));
   if (p.prs > 0) { R(mx + 5, my - 17, 2, 7, "#ff4d6a"); R(mx + 5, my - 17, 4, 2, "#ff4d6a"); }
   if (p.prs >= 10) { R(mx - 2, my - 16, 3, 3, "#fff"); R(mx + 1, my - 17, 3, 3, "#ffe9a8"); R(mx - 1, my - 18, 3, 2, "#fff"); }
   const nc = Math.min(6, Math.ceil(p.issues / 3)); for (let j = 0; j < nc; j++) { const bx = X(hx + hw + 6) + (j % 3) * 7, by = Y(hy + 3) - Math.floor(j / 3) * 6; R(bx, by - 6, 6, 6, "#b9824a"); R(bx, by - 6, 6, 1, "#d9a366"); R(bx + 2, by - 6, 1, 6, "#8a5a2c"); }
@@ -361,6 +406,7 @@ function drawChar(c, t, night) {
   }
   if (c.usr) { R(X - 3, Y - 14, 7, 2, "#4aa8ff"); R(X + 2, Y - 13, 3, 1, "#4aa8ff"); }
   if (c.wake > t) { R(X, Y - 20, 1, 3, "#ffc857"); R(X, Y - 16, 1, 1, "#ffc857"); }
+  if (!c.vis && !c.usr && c.mode !== "sleep") R(X - 3, Y - 4, 6, 1, ACC[(c.hair.charCodeAt(2) + c.skin.charCodeAt(3)) % ACC.length]);
   if (c.vis) { const hy = c.mode === "sleep" ? 11 : 14; R(X - 3, Y - hy, 7, 2, "#ffd84a"); R(X - 2, Y - hy - 1, 5, 1, "#ffd84a"); }
   if (c.r.ci?.status === "failure") { if (Math.floor(t / 8) % 2) { R(X, Y - 21, 2, 4, "#ff3b3b"); R(X, Y - 16, 2, 2, "#ff3b3b"); } }
   else if (c.r.sessions?.length && c.mode !== "sleep") { R(X - 4, Y - 20, 9, 5, "#fff"); R(X - 1, Y - 15, 2, 1, "#fff"); [-2, 0, 2].forEach(o => R(X + o, Y - 18, 1, 1, "#4a5568")); }
@@ -390,6 +436,9 @@ function drawRainbow(pl, pal, ph) {   // arc-en-ciel : tests au vert et projet a
 }
 function drawFx(pl, pal, ph) {
   const p = pl.p, g = fxGeom(pl), { ox, oy } = pl;
+  if ((ph === "day" || ph === "dawn") && (pal.season === "spring" || pal.season === "summer")) {   // papillons
+    for (let b = 0; b < 3; b++) { const bx = ox + (pl.i * 53 + b * 61 + Math.sin(T / 17 + b) * 20 + T * .12) % PW, by = oy + pl.hy + 16 + ((b * 29 + Math.cos(T / 13 + b) * 10 + 60) % Math.max(20, PH - pl.hy - 28)), fl = Math.floor(T / 3 + b) % 2, c = ["#ff9f43", "#ff7ab6", "#5cb6ff"][b]; R(bx - fl, by, 1, 2, c); R(bx + 1, by, 1, 2, c); R(bx, by, 1, 2, "#2a2f45"); }
+  }
   if (g.balloon) {   // ballon : une version vient d'être publiée
     const b = g.balloon, sx = Math.sin(T / 22) * 3, bx = ox + b.x + sx, by = oy + b.y + Math.sin(T / 17) * 2, x0 = ox + pl.hx + pl.hw - 13, y0 = oy + pl.hy - 54;
     for (let t = 0; t <= 1; t += .05) R(x0 + (bx - x0) * t, y0 + (by + 10 - y0) * t, 1, 1, "rgba(255,255,255,.7)");
@@ -528,29 +577,29 @@ addEventListener("blur", () => KEYS.clear());
 let DOORC = [];
 function frame() {
   DYN = []; G = ctx; ctx.setTransform(k, 0, 0, k, 0, 0); ctx.imageSmoothingEnabled = false;
-  const ph = curPhase(), pal = PAL[ph]; stage.style.background = pal.grass;
+  const ph = curPhase(), pal = palFor(ph); stage.style.background = pal.grass;
   for (let r = 0; r < rows; r++) band(r, pal, ph);
   plots.forEach(pl => {
     const { ox, oy, cx, hy, hw } = pl; ctx.save(); ctx.translate(ox, oy); ctx.beginPath(); ctx.rect(0, 0, PW, PH); ctx.clip(); ctx.translate(-ox, -oy);
-    pl.tufts.forEach(u => { R(ox + u.x, oy + u.y, 2, 1, pal.tuft); if (u.f >= 0) R(ox + u.x, oy + u.y - 2, 1, 1, pal.flower[u.f]); });
-    R(ox + cx - 5, oy + hy, 10, PH - hy, pal.path); R(ox + cx - 5, oy + hy, 1, PH - hy, "rgba(0,0,0,.08)");
+    pl.tufts.forEach(u => { R(ox + u.x, oy + u.y, 2, 1, pal.tuft); if (u.f >= 0) { R(ox + u.x, oy + u.y - 1, 1, 1, "#2f9e57"); R(ox + u.x - 1, oy + u.y - 3, 3, 2, pal.flower[u.f]); R(ox + u.x, oy + u.y - 2, 1, 1, "#ffe9a8"); } });
+    R(ox + cx - 5, oy + hy, 10, PH - hy, pal.path); R(ox + cx - 5, oy + hy, 1, PH - hy, "rgba(0,0,0,.08)"); for (let j = 0; j < 14; j++) R(ox + cx - 4 + ((j * 7) % 8), oy + hy + 6 + j * ((PH - hy - 8) / 14), 2, 1, ["#c9b27a", "#b5a384", "#d9c08e", "#c98f7a"][j % 4]);
     if (pl.pond) { const { x, y } = pl.pond; [[-2, 14], [0, 22], [2, 26], [4, 22], [6, 14]].forEach(([dy, w]) => R(ox + x - w / 2, oy + y + dy, w, 2, pal.water)); R(ox + x - 6, oy + y + 1, 6, 1, "rgba(255,255,255,.5)"); }
     drawRainbow(pl, pal, ph);
     drawHouse(pl, pal, ph);
-    const items = pl.trees.map(t => ({ y: t.y, d: () => tree(ox + t.x, oy + t.y, t.s, pal) }));
-    items.push({ y: hy + 30, d: () => lamp(ox + cx + 13, oy + hy + 30, pal.lit && !(LAMPOFF[pl.i] > T && Math.floor(T / 4) % 2)) });
+    const items = pl.trees.map(t => ({ y: t.y, d: () => tree(ox + t.x, oy + t.y, t.s, pal, t.v) }));
+    items.push({ y: hy + 30, d: () => lamp(ox + cx + 13, oy + hy + 30, pal.lit && !(LAMPOFF[pl.i] > T && Math.floor(T / 4) % 2), pl.p.lampc) });
     const alive = T >= pl.born + 36;
     if (alive) chars.filter(c => c.pi === pl.i).forEach(c => items.push({ y: c.y, d: () => { ctx.save(); ctx.translate(ox, oy); drawChar(c, T, pal.lit); ctx.restore(); } }));
     items.sort((a, b) => a.y - b.y).forEach(it => it.d());
     drawFx(pl, pal, ph);
     if (pal.lit) pl.flies.forEach((f, j) => {
       const key = pl.i + "-" + j; if (CAUGHT[key] > T) return; const fx_ = ox + f.x + Math.sin(T / 17 + f.p) * 9, fy_ = oy + f.y + Math.cos(T / 13 + f.p) * 6;
-      if (Math.floor(T / 5 + j * 3) % 4) R(fx_, fy_, 1, 1, "#d8ff7a");
+      if (Math.floor(T / 5 + j * 3) % 4) R(fx_, fy_, 1, 1, ["#d8ff7a", "#8ff0ff", "#ffb5e0"][j % 3]);
       DYN.push({ x: fx_, y: fy_, r: 4, tipHtml: hotTip("Luciole", "elles apparaissent à la tombée de la nuit. Essayez d'en attraper une."), act: m => { CAUGHT[key] = T + 500; const n = (+lsGet("rph.flies", "0")) + 1; lsSet("rph.flies", String(n)); spawn("heart", fx_, fy_, 2); egg("firefly", `✨ ${n} luciole${n > 1 ? "s" : ""} attrapée${n > 1 ? "s" : ""}`, m); } });
     });
     ctx.restore();
   });
-  drawMe(); drawFxp();
+  drawAmb(pal); drawMe(); drawFxp();
 }
 function tick() { T++; stepMe(); if (T < PARTY && T % 20 === 0) chars.forEach(c => { if (Math.random() < .5) c.hop = 12; }); chars.forEach(c => { if (T >= (plots[c.pi]?.born || 0) + 36) stepChar(c); }); }
 let last = 0, rafId = 0;
@@ -740,6 +789,8 @@ function openHelp() {
     <div class="legrow"><div class="ico">⭐</div><div><b>NIV et barre sous le nom</b><span>Le niveau monte avec le nombre de commits (sauvegardes de code) des 12 dernières semaines. La barre montre la progression vers le niveau suivant.</span></div></div>
     <div class="legrow"><div class="ico">📬</div><div><b>Boîte aux lettres, drapeau levé</b><span>Des propositions de modifications (pull requests) attendent une relecture.</span></div></div>
     <div class="legrow"><div class="ico">📦</div><div><b>Colis devant la maison</b><span>Un colis pour environ 3 tâches ouvertes (issues).</span></div></div>
+    <div class="legrow"><div class="ico">🍂</div><div><b>Les couleurs du village changent avec la saison</b><span>Printemps rose et fleuri, été vert, automne orange avec des feuilles qui tombent, hiver enneigé. Elles suivent la date ; le bouton 🍂 en haut force une saison.</span></div></div>
+    <div class="legrow"><div class="ico">🎏</div><div><b>Guirlande colorée sur la maison</b><span>Le projet a été modifié cette semaine.</span></div></div>
     <div class="legrow"><div class="ico">🌈</div><div><b>Arc-en-ciel</b><span>Tous les tests automatiques du projet sont au vert et il a été modifié cette semaine.</span></div></div>
     <div class="legrow"><div class="ico">🚚</div><div><b>Camion devant la porte</b><span>Un pipeline automatique a réussi ces dernières 24 heures.</span></div></div>
     <div class="legrow"><div class="ico">🎈</div><div><b>Ballon attaché à la cheminée</b><span>Une nouvelle version a été publiée ces 3 derniers jours.</span></div></div>
@@ -1312,6 +1363,7 @@ $("#tabVillage").onclick = () => showView("village"); $("#tabStats").onclick = (
 $$("#per [data-p]").forEach(b => b.onclick = () => { PERIOD = +b.dataset.p; lsSet("rph.period", String(PERIOD)); $$("#per [data-p]").forEach(x => x.setAttribute("aria-pressed", x === b)); refreshAll(); });
 $("#btnConvs").onclick = openConvs; $("#btnHub").onclick = openHubMenu; $("#btnWalk").onclick = () => WALK ? stopWalk() : startWalk(); $("#btnEggs").onclick = openEggs; $("#btnInbox").onclick = () => openInbox();
 $("#btnAdd").onclick = () => openAdd(); $("#btnSearch").onclick = openSearch; $("#btnHelp").onclick = openHelp; $("#btnGuide").onclick = openHelp;
+$("#btnSeason").onclick = () => { SEASON = SEASONS[(SEASONS.indexOf(SEASON) + 1) % SEASONS.length]; lsSet("rph.season", SEASON); seasonBtn(); frame(); };
 $("#btnPhase").onclick = () => { PHASE = PHASES[(PHASES.indexOf(PHASE) + 1) % PHASES.length]; lsSet("rph.phase", PHASE); phaseBtn(); frame(); };
 $("#btnTheme").onclick = () => { THEME = THEME === "auto" ? "dark" : THEME === "dark" ? "light" : "auto"; lsSet("rph.theme", THEME); applyTheme(); $("#btnTheme").title = "Thème de l'interface : " + { auto: "automatique", dark: "sombre", light: "clair" }[THEME]; };
 $("#btnOut").onclick = () => { try { const r = indexedDB.deleteDatabase("rph"); r.onsuccess = r.onerror = r.onblocked = () => location.reload(); } catch { location.reload(); } };
